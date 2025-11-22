@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(curl:*)",
+      "Bash(streamlit run:*)",
+      "Bash(cat:*)",
+      "Bash(printf:*)",
+      "Bash(crontab:*)",
+      "Bash(crontab -l:*)",
+      "WebFetch(domain:open.fda.gov)",
+      "WebFetch(domain:api.fda.gov)",
+      "WebFetch(domain:www.ebi.ac.uk)",
+      "WebFetch(domain:chembl.gitbook.io)",
+      "WebFetch(domain:www.ncbi.nlm.nih.gov)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}

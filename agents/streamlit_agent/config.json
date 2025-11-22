@@ -1,0 +1,21 @@
+{
+  "name": "streamlit_agent",
+  "role": "UI/visualization expert and data science specialist",
+  "mcp_servers": [],
+  "skills_path": "./skills",
+  "knowledge_path": "./knowledge",
+  "context_cache_ttl": 3600,
+  "max_retries": 3,
+  "timeout_ms": 30000,
+  "capabilities": [
+    "create_radar_chart",
+    "create_trial_timeline",
+    "create_metric_cards",
+    "create_ae_bar_chart",
+    "optimize_layout"
+  ],
+  "can_call_agents": [
+    "context7_agent",
+    "supabase_agent"
+  ]
+}

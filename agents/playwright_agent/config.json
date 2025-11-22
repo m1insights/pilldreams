@@ -1,0 +1,15 @@
+{
+  "name": "playwright_agent",
+  "role": "Web scraping specialist for DrugBank, Reddit, etc.",
+  "mcp_servers": ["playwright"],
+  "skills_path": "./skills",
+  "context_cache_ttl": 7200,
+  "max_retries": 3,
+  "timeout_ms": 60000,
+  "capabilities": [
+    "scrape_drugbank",
+    "scrape_reddit_sentiment",
+    "extract_table_data",
+    "navigate_pagination"
+  ]
+}

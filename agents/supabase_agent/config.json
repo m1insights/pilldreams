@@ -1,0 +1,16 @@
+{
+  "name": "supabase_agent",
+  "role": "Database operations specialist",
+  "mcp_servers": ["supabase"],
+  "skills_path": "./skills",
+  "context_cache_ttl": 3600,
+  "max_retries": 3,
+  "timeout_ms": 30000,
+  "capabilities": [
+    "query_drugs",
+    "query_trials",
+    "query_safety_data",
+    "insert_batch",
+    "update_scores"
+  ]
+}
