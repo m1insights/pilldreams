@@ -1,0 +1,593 @@
+/*
+ * pilldreams - Aceternity Design System
+ * Aesthetic: Glassmorphism, Purple/Blue Gradients, Matte Black
+ */
+
+/* ==================== CSS VARIABLES (Design Tokens) ==================== */
+:root {
+    /* Color Palette - Matte Black & Aceternity Gradients */
+    --bg-primary: #000000;
+    /* True Matte Black (like landing page) */
+    --bg-secondary: rgba(17, 17, 17, 0.4);
+    /* Glassmorphism Panel */
+    --bg-tertiary: rgba(31, 31, 31, 0.5);
+    /* Input/Element Background */
+    --bg-elevated: rgba(45, 45, 45, 0.6);
+    /* Hover State with Glass */
+
+    /* Aceternity Purple/Blue Palette (matching landing page) */
+    --purple-400: #c084fc;
+    /* Purple accent */
+    --purple-600: #9333ea;
+    /* Deep purple */
+    --purple-900: #581c87;
+    /* Dark purple base */
+    --blue-400: #60a5fa;
+    /* Blue accent */
+    --blue-600: #2563eb;
+    /* Deep blue */
+    --gray-800: #1f2937;
+    /* Dark gray */
+    --gray-900: #111827;
+    /* Darker gray */
+
+    /* Neon Accents (keep for data visualization) */
+    --neon-green: #00FF94;
+    --neon-blue: #00C2FF;
+    --neon-purple: #BC13FE;
+    --neon-red: #FF3B30;
+    --neon-yellow: #FAFF00;
+
+    /* Aceternity Gradients */
+    --gradient-aceternity: linear-gradient(135deg, var(--purple-400) 0%, var(--blue-400) 100%);
+    --gradient-glow: radial-gradient(circle at center, rgba(147, 51, 234, 0.15) 0%, transparent 70%);
+    --gradient-primary: linear-gradient(135deg, var(--purple-600) 0%, var(--blue-600) 100%);
+    --gradient-success: linear-gradient(135deg, var(--neon-green) 0%, #00C2FF 100%);
+    --gradient-danger: linear-gradient(135deg, var(--neon-red) 0%, #FF9500 100%);
+
+    /* Text Colors */
+    --text-primary: #FFFFFF;
+    --text-secondary: #888888;
+    --text-tertiary: #444444;
+    --text-muted: #333333;
+
+    /* Borders & Glows - Aceternity Style */
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    /* Lighter for glass effect */
+    --border-active: var(--purple-600);
+    /* Purple border on focus */
+    --border-glass: rgba(255, 255, 255, 0.08);
+    /* Glass card border */
+    --glow-primary: 0 0 20px rgba(147, 51, 234, 0.4);
+    /* Purple glow */
+    --glow-success: 0 0 20px rgba(0, 255, 148, 0.3);
+    --glow-text: 0 0 10px rgba(255, 255, 255, 0.5);
+    --glow-spotlight: 0 0 100px rgba(147, 51, 234, 0.15);
+    /* Subtle spotlight */
+
+    /* Spacing Scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 4rem;
+
+    /* Border Radius - Softer for glass morphism */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+
+    /* Typography */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+
+    /* Glassmorphism - Aceternity Style */
+    --glass-bg: rgba(17, 17, 17, 0.5);
+    /* Semi-transparent dark glass */
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: blur(20px);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* ==================== GLOBAL STYLES ==================== */
+/* Apply font to specific text elements to avoid breaking icons */
+body,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+div,
+a,
+li,
+button,
+input,
+select,
+textarea,
+label {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Explicitly protect icon classes */
+.material-icons,
+.material-symbols-outlined,
+i,
+[class*="st-emotion-cache"] {
+    font-family: 'Material Icons' !important;
+}
+
+body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Remove default Streamlit branding */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+header {
+    visibility: hidden;
+}
+
+/* ==================== APP CONTAINER ==================== */
+.stApp {
+    background: var(--bg-primary);
+    /* Grid background pattern (matching landing page) */
+    background-image:
+        linear-gradient(to right, rgba(79, 79, 79, 0.18) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(79, 79, 79, 0.18) 1px, transparent 1px),
+        /* Purple gradient overlay */
+        radial-gradient(circle at 10% 20%, rgba(147, 51, 234, 0.12) 0%, transparent 50%),
+        /* Blue gradient overlay */
+        radial-gradient(circle at 90% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 50%);
+    background-size: 14px 24px, 14px 24px, 100% 100%, 100% 100%;
+    background-attachment: fixed;
+}
+
+/* ==================== SIDEBAR ==================== */
+[data-testid="stSidebar"] {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-subtle);
+}
+
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] select {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid var(--border-glass) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.8rem !important;
+    border-radius: var(--radius-md) !important;
+    padding: 10px 12px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-testid="stSidebar"] input:focus,
+[data-testid="stSidebar"] select:focus {
+    border-color: var(--purple-400) !important;
+    box-shadow: var(--glow-spotlight) !important;
+    background: rgba(17, 17, 17, 0.7) !important;
+    outline: none !important;
+}
+
+/* Main content input fields */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid var(--border-glass) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 10px 12px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--purple-400) !important;
+    box-shadow: var(--glow-spotlight) !important;
+    background: rgba(17, 17, 17, 0.7) !important;
+    outline: none !important;
+}
+
+/* Streamlit text input */
+[data-testid="stTextInput"] input {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid var(--border-glass) !important;
+    color: #FFFFFF !important;
+    /* Force white text */
+    caret-color: var(--purple-400) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-testid="stTextInput"] input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-testid="stTextInput"] input:focus {
+    border-color: var(--purple-400) !important;
+    box-shadow: var(--glow-spotlight) !important;
+    background: rgba(17, 17, 17, 0.9) !important;
+    color: #FFFFFF !important;
+}
+
+/* ==================== HEADINGS ==================== */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.03em !important;
+}
+
+h1 {
+    font-size: 3.5rem !important;
+    font-weight: 700 !important;
+    /* Aceternity purple/blue gradient for headings */
+    background: var(--gradient-aceternity);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: var(--space-xl) !important;
+}
+
+h2 {
+    font-size: 1.5rem !important;
+    color: var(--text-secondary) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em !important;
+    font-size: 0.8rem !important;
+    margin-top: var(--space-xl) !important;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: var(--space-sm);
+}
+
+h3 {
+    font-size: 1.2rem !important;
+    color: var(--text-primary) !important;
+}
+
+/* ==================== METRIC CARDS (Glassmorphism) ==================== */
+/* ==================== METRIC CARDS (Glassmorphism) ==================== */
+/* Custom Metric Container (replacing shadcn cards) */
+.metric-container {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--glass-shadow);
+    height: 100%;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.metric-container:hover {
+    border-color: var(--purple-400);
+    box-shadow: var(--glow-spotlight), var(--glass-shadow);
+    transform: translateY(-2px);
+    background: rgba(17, 17, 17, 0.8);
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.5rem;
+}
+
+.metric-value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, #fff 0%, #ccc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ==================== BUTTONS ==================== */
+.stButton>button {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: var(--radius-md) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.8rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding: 12px 24px !important;
+}
+
+.stButton>button:hover {
+    border-color: var(--purple-400) !important;
+    background: rgba(17, 17, 17, 0.7) !important;
+    box-shadow: var(--glow-spotlight) !important;
+    transform: translateY(-2px);
+}
+
+/* ==================== DATAFRAMES (Glassmorphism Tables) ==================== */
+[data-testid="stDataFrame"],
+.stDataFrame {
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    overflow: hidden;
+}
+
+[data-testid="stDataFrame"] thead th {
+    background: rgba(31, 31, 31, 0.6);
+    color: var(--text-secondary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    border-bottom: 1px solid var(--border-glass) !important;
+    padding: 12px !important;
+}
+
+[data-testid="stDataFrame"] tbody td {
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.85rem !important;
+    border-bottom: 1px solid var(--border-glass) !important;
+    padding: 10px 12px !important;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+[data-testid="stDataFrame"] tbody tr:hover td {
+    background: rgba(147, 51, 234, 0.1);
+    border-color: var(--purple-400);
+}
+
+/* ==================== CUSTOM COMPONENTS ==================== */
+
+/* Hero Header */
+/* Main App Header */
+.main-header {
+    font-size: 5rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    line-height: 1.1;
+    background: var(--gradient-aceternity);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: var(--space-xs);
+}
+
+.subtitle {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-bottom: var(--space-xl);
+}
+
+/* Hero Header */
+.hero-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-xl) 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--space-xl);
+}
+
+.hero-title {
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+    font-family: var(--font-mono);
+    color: var(--neon-blue);
+    font-size: 0.9rem;
+    margin-top: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Signal Chips */
+.signal-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-right: 8px;
+    border: 1px solid transparent;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+}
+
+.signal-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.signal-bullish {
+    background: rgba(0, 255, 148, 0.15);
+    color: var(--neon-green);
+    border-color: rgba(0, 255, 148, 0.4);
+}
+
+.signal-bearish {
+    background: rgba(255, 59, 48, 0.15);
+    color: var(--neon-red);
+    border-color: rgba(255, 59, 48, 0.4);
+}
+
+.signal-neutral {
+    background: rgba(147, 51, 234, 0.1);
+    color: var(--purple-400);
+    border-color: var(--border-glass);
+}
+
+/* Probability Gauge Container */
+.gauge-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+    border: 1px solid var(--border-subtle);
+}
+
+.gauge-value {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.gauge-label {
+    position: absolute;
+    bottom: 20px;
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+/* Affinity Bar */
+.affinity-bar-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.affinity-bar-container:hover {
+    background: rgba(147, 51, 234, 0.05);
+    transform: translateX(4px);
+}
+
+.affinity-label {
+    width: 120px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+    padding-right: 12px;
+}
+
+.affinity-track {
+    flex-grow: 1;
+    height: 8px;
+    background: rgba(31, 31, 31, 0.8);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    position: relative;
+}
+
+.affinity-fill {
+    height: 100%;
+    background: var(--gradient-aceternity);
+    box-shadow: 0 0 15px rgba(147, 51, 234, 0.5), 0 0 30px rgba(96, 165, 250, 0.3);
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.affinity-value {
+    width: 60px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    padding-left: 12px;
+    font-weight: 500;
+}
+
+/* Tabs */
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: var(--space-md);
+    background-color: transparent;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    height: auto;
+    background-color: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: -1px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"]:hover {
+    background: rgba(147, 51, 234, 0.1);
+    color: var(--purple-400);
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+    color: var(--purple-400);
+    background: var(--glass-bg);
+    border: 1px solid var(--border-glass);
+    border-bottom: 1px solid transparent;
+    box-shadow: 0 -2px 10px rgba(147, 51, 234, 0.2);
+}

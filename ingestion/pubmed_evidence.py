@@ -22,6 +22,7 @@ import statistics
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.supabase_client import get_client
+from core.drug_name_utils import normalize_drug_name
 
 load_dotenv()
 logger = structlog.get_logger()
@@ -261,9 +262,25 @@ class EvidenceIngestionPipeline:
         """
         logger.info("Starting PubMed evidence data ingestion", max_drugs=max_drugs or "all")
 
-        # Step 1: Fetch all drugs from database
-        drugs_response = self.db.client.table('drug').select('id, name').execute()
-        drugs = drugs_response.data
+        # Step 1: Fetch all drugs from database (with pagination)
+        # Supabase has 1000 row limit per request
+        drugs = []
+        page_size = 1000
+        offset = 0
+
+        while True:
+            drugs_response = self.db.client.table('drug').select('id, name').range(offset, offset + page_size - 1).execute()
+            page_data = drugs_response.data
+
+            if not page_data:
+                break
+
+            drugs.extend(page_data)
+            offset += page_size
+
+            # Break if we got less than page_size (last page)
+            if len(page_data) < page_size:
+                break
 
         if not drugs:
             logger.warning("No drugs found in database")
@@ -285,14 +302,18 @@ class EvidenceIngestionPipeline:
             drug_id = drug["id"]
             drug_name = drug["name"]
 
+            # Normalize drug name for API query (remove dosage info)
+            normalized_name = normalize_drug_name(drug_name)
+
             logger.info(
                 "Processing drug",
                 index=f"{i}/{len(drugs)}",
-                drug=drug_name
+                drug=drug_name,
+                normalized=normalized_name if normalized_name != drug_name else None
             )
 
-            # Classify evidence
-            evidence = self.classify_evidence(drug_name)
+            # Classify evidence using normalized name
+            evidence = self.classify_evidence(normalized_name)
 
             # Step 3: Insert/update EvidenceAggregate
             try:

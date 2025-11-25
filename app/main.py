@@ -6,6 +6,7 @@ Design inspired by Linear - minimal, black & white, clean
 """
 
 import streamlit as st
+import streamlit_shadcn_ui as ui
 import sys
 from pathlib import Path
 import pandas as pd
@@ -14,6 +15,12 @@ import pandas as pd
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.supabase_client import get_client
+from core.trial_design_scorer import get_quality_category
+from core.competitor_analysis import get_full_competitive_landscape
+from core.fda_precedent import calculate_approval_probability
+from core.auth import require_authentication
+from core.scoring import DrugScorer
+from core.drug_display_utils import get_unique_drugs, format_variant_info, should_show_variant_info
 
 # Page config
 st.set_page_config(
@@ -23,229 +30,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS - Linear-inspired black & white design
-st.markdown("""
-<style>
-    /* Global dark theme */
-    :root {
-        --bg-primary: #0A0A0A;
-        --bg-secondary: #111111;
-        --bg-tertiary: #1A1A1A;
-        --border-color: #2A2A2A;
-        --text-primary: #E5E5E5;
-        --text-secondary: #A0A0A0;
-        --text-muted: #6B6B6B;
-        --accent: #FFFFFF;
-        --hover-bg: #1F1F1F;
-    }
+# AUTHENTICATION CHECK - Must be authenticated to access app
+user = require_authentication()
 
-    /* Main background */
-    .stApp {
-        background-color: var(--bg-primary);
-        color: var(--text-primary);
-    }
+# Load professional custom CSS
+css_path = Path(__file__).parent / 'styles' / 'custom.css'
+with open(css_path) as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Custom header */
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        color: var(--accent);
-        margin-bottom: 0.5rem;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-
-    .subtitle {
-        font-size: 1rem;
-        color: var(--text-secondary);
-        margin-bottom: 3rem;
-        font-weight: 400;
-    }
-
-    /* Search bar */
-    .stTextInput > div > div > input {
-        background-color: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        color: var(--text-primary);
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        font-size: 0.95rem;
-        transition: all 0.2s ease;
-    }
-
-    .stTextInput > div > div > input:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
-    }
-
-    .stTextInput > div > div > input::placeholder {
-        color: var(--text-muted);
-    }
-
-    /* Select box */
-    .stSelectbox > div > div {
-        background-color: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        color: var(--text-primary);
-        border-radius: 8px;
-    }
-
-    /* Cards */
-    .drug-card {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        transition: all 0.2s ease;
-    }
-
-    .drug-card:hover {
-        background: var(--hover-bg);
-        border-color: var(--text-muted);
-    }
-
-    .drug-name {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--accent);
-        margin-bottom: 0.5rem;
-    }
-
-    .drug-meta {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-
-    /* Badges */
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .badge-phase {
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--accent);
-        border: 1px solid var(--border-color);
-    }
-
-    .badge-status {
-        background: rgba(59, 130, 246, 0.1);
-        color: #60A5FA;
-        border: 1px solid rgba(59, 130, 246, 0.2);
-    }
-
-    .badge-sponsor {
-        background: rgba(168, 85, 247, 0.1);
-        color: #C084FC;
-        border: 1px solid rgba(168, 85, 247, 0.2);
-    }
-
-    /* Metrics */
-    .metric-container {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-    }
-
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 600;
-        color: var(--accent);
-        margin-bottom: 0.25rem;
-    }
-
-    .metric-label {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    /* Tables */
-    .dataframe {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        color: var(--text-primary) !important;
-    }
-
-    .dataframe th {
-        background-color: var(--bg-tertiary) !important;
-        color: var(--text-secondary) !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        font-size: 0.75rem !important;
-        letter-spacing: 0.05em !important;
-        border-bottom: 1px solid var(--border-color) !important;
-    }
-
-    .dataframe td {
-        border-bottom: 1px solid var(--border-color) !important;
-        color: var(--text-primary) !important;
-    }
-
-    /* Buttons */
-    .stButton > button {
-        background-color: var(--accent);
-        color: var(--bg-primary);
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.2s ease;
-    }
-
-    .stButton > button:hover {
-        background-color: var(--text-primary);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
-    }
-
-    /* Divider */
-    hr {
-        border: none;
-        border-top: 1px solid var(--border-color);
-        margin: 2rem 0;
-    }
-
-    /* Expander */
-    .streamlit-expanderHeader {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: 8px !important;
-        color: var(--text-primary) !important;
-    }
-
-    .streamlit-expanderContent {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        border-top: none !important;
-    }
-
-    /* Info boxes */
-    .stInfo {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        color: var(--text-secondary) !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Inject Material Icons for shadcn components
+st.markdown('<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">', unsafe_allow_html=True)
 
 # Initialize database connection
 @st.cache_resource
@@ -253,6 +47,61 @@ def init_db():
     return get_client()
 
 db = init_db()
+
+def render_affinity_spectrum(bindings):
+    """
+    Renders a 'Potency Spectrum' visualization for drug targets.
+    Visualizes affinity (nM) on a log scale as 'Signal Intensity'.
+    """
+    if not bindings:
+        st.info("No target binding data available.")
+        return
+
+    st.markdown('<div style="margin-bottom: 1rem; font-family: var(--font-mono); color: var(--text-secondary);">SIGNAL INTENSITY (LOG SCALE)</div>', unsafe_allow_html=True)
+
+    for binding in bindings:
+        target = binding.get('target', {})
+        symbol = target.get('symbol', 'UNKNOWN')
+        name = target.get('name', 'Unknown Target')
+        affinity_val = binding.get('affinity_value')
+        
+        # Calculate 'intensity' (0-100%) based on affinity
+        # Lower nM = Higher Potency. 
+        # Scale: 0.1nM (100%) to 10,000nM (0%)
+        if affinity_val:
+            try:
+                val = float(affinity_val)
+                # Log scale normalization roughly: -log10(val) scaled
+                # Let's do a simple heuristic for visual impact
+                if val <= 0.1: intensity = 100
+                elif val >= 10000: intensity = 5
+                else:
+                    # Log scale interpolation between 0.1 (100%) and 10000 (5%)
+                    # log(0.1) = -1, log(10000) = 4. Range = 5 orders of magnitude.
+                    import math
+                    log_val = math.log10(val)
+                    # Map -1 -> 100, 4 -> 5
+                    # y = mx + c
+                    # 100 = m(-1) + c
+                    # 5 = m(4) + c
+                    # 95 = -5m => m = -19
+                    # 100 = 19 + c => c = 81
+                    intensity = -19 * log_val + 81
+                    intensity = max(5, min(100, intensity))
+            except:
+                intensity = 10
+        else:
+            intensity = 0
+            
+        st.markdown(f"""
+        <div class="affinity-bar-container">
+            <div class="affinity-label" title="{name}">{symbol}</div>
+            <div class="affinity-track">
+                <div class="affinity-fill" style="width: {intensity}%;"></div>
+            </div>
+            <div class="affinity-value">{affinity_val} nM</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Initialize session state
 if 'selected_drug' not in st.session_state:
@@ -266,8 +115,9 @@ st.markdown('<div class="subtitle">Drug intelligence for investors. Real-time pi
 # DRUG DETAIL VIEW
 # =======================
 if st.session_state.selected_drug:
+    # Back button (shadcn)
     # Back button
-    if st.button("← Back to Search"):
+    if st.button("← Back to Search", key="back_btn"):
         st.session_state.selected_drug = None
         st.rerun()
 
@@ -284,8 +134,43 @@ if st.session_state.selected_drug:
 
     drug = drug_response.data[0]
 
-    # Drug header
-    st.markdown(f'<div class="main-header">{drug["name"]}</div>', unsafe_allow_html=True)
+    # Pre-fetch approval data for hero section
+    try:
+        hero_approval_data = calculate_approval_probability(drug_id)
+        is_approved = hero_approval_data.get('is_approved', False)
+        approval_prob = hero_approval_data.get('approval_probability', 0)
+    except:
+        is_approved = drug.get('is_approved', False)
+        approval_prob = 0
+
+    # Determine status chips and gauge display
+    if is_approved:
+        status_chip = '<span class="signal-chip signal-bullish">✓ FDA APPROVED</span>'
+        gauge_value = "APPROVED"
+        gauge_label = "Status"
+    else:
+        status_chip = '<span class="signal-chip signal-neutral">IN DEVELOPMENT</span>'
+        gauge_value = f"{approval_prob * 100:.0f}%" if approval_prob > 0 else "—"
+        gauge_label = "Approval Prob."
+
+    # Drug header (Hero Section)
+    st.markdown(f"""
+    <div class="hero-container">
+        <div>
+            <div class="hero-title">{drug["name"]}</div>
+            <div class="hero-subtitle">{drug.get('mechanism_of_action', 'Mechanism Undefined')}</div>
+            <div style="margin-top: 1rem;">
+                {status_chip}
+            </div>
+        </div>
+        <div class="gauge-container">
+             <div style="text-align: center;">
+                <div class="gauge-value">{gauge_value}</div>
+                <div class="gauge-label">{gauge_label}</div>
+             </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Get trials for this drug
     interventions = db.client.table('trial_intervention').select('trial_id').eq('drug_id', drug_id).execute()
@@ -319,7 +204,7 @@ if st.session_state.selected_drug:
         st.markdown("### Key Metrics")
         st.markdown("")
 
-        # Metrics row
+        # Metrics row with shadcn metric_card components
         metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
         with metric_col1:
@@ -359,6 +244,351 @@ if st.session_state.selected_drug:
         st.markdown("")
         st.markdown("---")
 
+        # Drug Intelligence Scores
+        st.markdown("### Drug Intelligence Scores")
+        st.markdown("")
+
+        try:
+            scorer = DrugScorer()
+            scores = scorer.calculate_all_scores(drug_id)
+
+            score_col1, score_col2, score_col3, score_col4 = st.columns(4)
+
+            with score_col1:
+                score_val = scores['trial_progress_score']
+                if score_val >= 70:
+                    badge_class = "badge-quality-excellent"
+                elif score_val >= 50:
+                    badge_class = "badge-quality-good"
+                elif score_val >= 30:
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{score_val}</div>
+                    <div class="metric-label">Trial Progress</div>
+                    <div class="badge {badge_class}" style="margin-top: 0.5rem;">
+                        /100
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with score_col2:
+                score_val = scores['mechanism_score']
+                if score_val >= 70:
+                    badge_class = "badge-quality-excellent"
+                elif score_val >= 50:
+                    badge_class = "badge-quality-good"
+                elif score_val >= 30:
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{score_val}</div>
+                    <div class="metric-label">Mechanism Quality</div>
+                    <div class="badge {badge_class}" style="margin-top: 0.5rem;">
+                        /100
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with score_col3:
+                score_val = scores['safety_score']
+                if score_val >= 70:
+                    badge_class = "badge-quality-excellent"
+                elif score_val >= 50:
+                    badge_class = "badge-quality-good"
+                elif score_val >= 30:
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{score_val}</div>
+                    <div class="metric-label">Safety Profile</div>
+                    <div class="badge {badge_class}" style="margin-top: 0.5rem;">
+                        /100
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with score_col4:
+                score_val = scores['overall_score']
+                if score_val >= 70:
+                    badge_class = "badge-quality-excellent"
+                elif score_val >= 50:
+                    badge_class = "badge-quality-good"
+                elif score_val >= 30:
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{score_val}</div>
+                    <div class="metric-label">Overall Score</div>
+                    <div class="badge {badge_class}" style="margin-top: 0.5rem;">
+                        Composite
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Score explanation
+            with st.expander("📊 How are these scores calculated?"):
+                st.markdown(f"""
+                **Trial Progress Score ({scores['trial_progress_score']}/100)**
+                - Highest phase reached (0-40 pts)
+                - Trial completion rate (0-20 pts)
+                - Sponsor quality (0-15 pts)
+                - Trial design quality (0-15 pts)
+                - Enrollment size (0-10 pts)
+
+                **Mechanism Score ({scores['mechanism_score']}/100)**
+                - Target validation (0-30 pts)
+                - Selectivity (0-30 pts)
+                - Binding affinity (0-25 pts)
+                - Measurement count (0-15 pts)
+
+                **Safety Score ({scores['safety_score']}/100)**
+                - Serious adverse events penalty (0-40 pts)
+                - Total adverse event count penalty (0-30 pts)
+                - Disproportionality signals penalty (0-30 pts)
+                - Higher score = better safety profile
+
+                **Overall Score ({scores['overall_score']}/100)**
+                - Weighted average: 40% trial + 30% mechanism + 30% safety
+                """)
+
+        except Exception as e:
+            st.info(f"Drug intelligence scores unavailable: {str(e)}")
+
+        st.markdown("")
+        st.markdown("---")
+
+        # FDA Approval Status / Probability
+        try:
+            approval_data = calculate_approval_probability(drug_id)
+
+            # Check if drug is already approved
+            if approval_data.get('is_approved'):
+                st.markdown("### FDA Approval Status")
+                st.markdown("")
+
+                approval_col1, approval_col2 = st.columns(2)
+
+                with approval_col1:
+                    st.markdown(f"""
+                    <div class="metric-container">
+                        <div class="metric-value" style="color: var(--neon-green);">✓ APPROVED</div>
+                        <div class="metric-label">FDA Status</div>
+                        <div class="badge badge-quality-excellent" style="margin-top: 0.5rem;">
+                            {approval_data['confidence']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with approval_col2:
+                    approval_date = approval_data.get('first_approval_date', 'Unknown')
+                    st.markdown(f"""
+                    <div class="metric-container">
+                        <div class="metric-value">{approval_date or 'On Record'}</div>
+                        <div class="metric-label">First Approved</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("")
+
+                if approval_data.get('reason'):
+                    st.info(f"ℹ️ {approval_data['reason']}")
+
+            # Pipeline drug - show approval probability
+            elif approval_data.get('current_phase'):
+                st.markdown("### FDA Approval Probability")
+                st.markdown("")
+
+                prob_pct = approval_data['approval_probability'] * 100
+
+                # Color code based on probability
+                if prob_pct >= 50:
+                    prob_badge_class = "badge-quality-excellent"
+                elif prob_pct >= 30:
+                    prob_badge_class = "badge-quality-good"
+                elif prob_pct >= 15:
+                    prob_badge_class = "badge-quality-fair"
+                else:
+                    prob_badge_class = "badge-quality-poor"
+
+                prob_col1, prob_col2, prob_col3 = st.columns(3)
+
+                with prob_col1:
+                    st.markdown(f"""
+                    <div class="metric-container">
+                        <div class="metric-value">{prob_pct:.1f}%</div>
+                        <div class="metric-label">Approval Probability</div>
+                        <div class="badge {prob_badge_class}" style="margin-top: 0.5rem;">
+                            {approval_data['confidence']} Confidence
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with prob_col2:
+                    base_pct = approval_data['base_success_rate'] * 100
+                    st.markdown(f"""
+                    <div class="metric-container">
+                        <div class="metric-value">{base_pct:.1f}%</div>
+                        <div class="metric-label">Historical Rate</div>
+                        <div class="badge badge-phase" style="margin-top: 0.5rem;">
+                            Phase {approval_data['current_phase']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with prob_col3:
+                    quality_adj_pct = approval_data['quality_adjustment'] * 100
+                    comp_adj_pct = approval_data['competitive_adjustment'] * 100
+                    total_adj_pct = quality_adj_pct + comp_adj_pct
+
+                    if total_adj_pct > 0:
+                        adj_badge = "badge-quality-good"
+                        adj_sign = "+"
+                    elif total_adj_pct < 0:
+                        adj_badge = "badge-quality-poor"
+                        adj_sign = ""
+                    else:
+                        adj_badge = "badge-phase"
+                        adj_sign = ""
+
+                    st.markdown(f"""
+                    <div class="metric-container">
+                        <div class="metric-value">{adj_sign}{total_adj_pct:+.1f}%</div>
+                        <div class="metric-label">Adjustments</div>
+                        <div class="badge {adj_badge}" style="margin-top: 0.5rem;">
+                            Trial Quality + Competition
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("")
+
+                # Explanation
+                with st.expander("📊 How is this calculated?"):
+                    st.markdown(f"""
+                    **Base Success Rate**: {base_pct:.1f}%
+                    - Historical Phase {approval_data['current_phase']} → Approval rate for {approval_data.get('indication', 'this indication')}
+                    - Based on {approval_data.get('n_indication_trials', 'N/A')} trials in this indication
+
+                    **Trial Quality Adjustment**: {quality_adj_pct:+.1f}%
+                    - Excellent trial designs (+10%), Poor designs (-10%)
+
+                    **Competitive Adjustment**: {comp_adj_pct:+.1f}%
+                    - Strong market position (+5%), Challenging position (-5%)
+
+                    **Final Probability**: {prob_pct:.1f}%
+                    """)
+
+            else:
+                st.info("Insufficient trial data to calculate approval probability.")
+
+        except Exception as e:
+            st.info(f"Approval probability analysis unavailable: {str(e)}")
+
+        st.markdown("")
+        st.markdown("---")
+
+        # Competitive Landscape
+        st.markdown("### Competitive Landscape")
+        st.markdown("")
+
+        try:
+            landscape = get_full_competitive_landscape(drug_id)
+            advantage = landscape['competitive_advantage']
+
+            # Competitive advantage score
+            comp_col1, comp_col2, comp_col3 = st.columns(3)
+
+            with comp_col1:
+                score = advantage['score']
+                category = advantage['category']
+
+                # Color code based on score
+                if score >= 80:
+                    badge_class = "badge-quality-excellent"
+                elif score >= 60:
+                    badge_class = "badge-quality-good"
+                elif score >= 40:
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{score}</div>
+                    <div class="metric-label">Competitive Advantage</div>
+                    <div class="badge {badge_class}" style="margin-top: 0.5rem;">{category}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with comp_col2:
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{advantage['indication_competitors']}</div>
+                    <div class="metric-label">Indication Competitors</div>
+                    <div class="badge badge-sponsor" style="margin-top: 0.5rem;">{advantage['market_position']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with comp_col3:
+                st.markdown(f"""
+                <div class="metric-container">
+                    <div class="metric-value">{advantage['target_competitors']}</div>
+                    <div class="metric-label">Target Competitors</div>
+                    <div class="badge badge-phase" style="margin-top: 0.5rem;">{advantage['phase_leadership']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("")
+
+            # Show top competitors if any
+            if landscape['indication_competitors']:
+                with st.expander(f"📊 View Top Indication Competitors ({len(landscape['indication_competitors'])})"):
+                    comp_data = []
+                    for comp in landscape['indication_competitors'][:10]:
+                        comp_data.append({
+                            "Drug": comp.get('drug_name', 'Unknown'),
+                            "Condition": comp.get('condition', 'N/A'),
+                            "Highest Phase": comp.get('highest_phase', 'N/A'),
+                            "Trials": comp.get('trial_count', 0)
+                        })
+
+                    if comp_data:
+                        comp_df = pd.DataFrame(comp_data)
+                        st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+            if landscape['target_competitors']:
+                with st.expander(f"🎯 View Drugs Sharing Targets ({len(landscape['target_competitors'])})"):
+                    target_data = []
+                    for comp in landscape['target_competitors'][:10]:
+                        target_data.append({
+                            "Drug": comp.get('drug_name', 'Unknown'),
+                            "Target": comp.get('target_symbol', 'N/A'),
+                            "Affinity": f"{comp.get('affinity_value', 'N/A')} nM" if comp.get('affinity_value') else "N/A"
+                        })
+
+                    if target_data:
+                        target_df = pd.DataFrame(target_data)
+                        st.dataframe(target_df, use_container_width=True, hide_index=True)
+
+        except Exception as e:
+            st.info(f"Competitive landscape analysis unavailable: {str(e)}")
+
+        st.markdown("")
+        st.markdown("---")
+
         # Trial phase distribution
         if trials:
             st.markdown("### Trial Phase Distribution")
@@ -378,30 +608,15 @@ if st.session_state.selected_drug:
     # TAB 2: PHARMACOLOGY
     # ==================
     with tab2:
-        st.markdown("### Drug Targets & Binding Affinity")
+        st.markdown("### Target Potency Spectrum")
+        st.markdown("Binding affinity visualized as signal intensity (Log Scale).")
         st.markdown("")
 
-        if bindings:
-            # Build targets dataframe
-            targets_data = []
-            for binding in bindings:
-                target = binding.get('target', {})
-                targets_data.append({
-                    "Target": target.get('name', 'Unknown'),
-                    "Symbol": target.get('symbol', 'N/A'),
-                    "Type": target.get('target_type', 'Unknown'),
-                    "Affinity": f"{binding.get('affinity_value', 'N/A')} nM" if binding.get('affinity_value') else "N/A",
-                    "Affinity Type": binding.get('affinity_type', 'N/A'),
-                    "Measurements": binding.get('measurement_count', 'N/A')
-                })
-
-            targets_df = pd.DataFrame(targets_data)
-            st.dataframe(targets_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No target binding data available yet. ChEMBL ingestion may still be running.")
+        render_affinity_spectrum(bindings)
 
         if drug.get('chembl_id'):
-            st.markdown(f"**ChEMBL ID:** {drug['chembl_id']}")
+            st.markdown("")
+            st.markdown(f"**ChEMBL ID:** `{drug['chembl_id']}`")
 
     # ==================
     # TAB 3: TRIALS & EVIDENCE
@@ -447,21 +662,97 @@ if st.session_state.selected_drug:
         st.markdown("")
 
         if trials:
-            trials_data = []
+            # Calculate trial quality distribution
+            quality_dist = {"Excellent": 0, "Good": 0, "Fair": 0, "Poor": 0, "Unscored": 0}
             for trial in trials:
-                trials_data.append({
-                    "NCT ID": trial.get('nct_id', 'N/A'),
-                    "Phase": trial.get('phase', 'Unknown'),
-                    "Status": trial.get('status', 'Unknown'),
-                    "Condition": trial.get('condition', 'N/A')[:50] + "..." if len(trial.get('condition', '')) > 50 else trial.get('condition', 'N/A'),
-                    "Enrollment": trial.get('enrollment', 'N/A'),
-                    "Start Date": trial.get('start_date', 'N/A')
-                })
+                score = trial.get('design_quality_score')
+                if score is not None:
+                    category = get_quality_category(score)
+                    quality_dist[category] += 1
+                else:
+                    quality_dist["Unscored"] += 1
 
-            trials_df = pd.DataFrame(trials_data)
-            st.dataframe(trials_df, use_container_width=True, hide_index=True)
+            # Show quality distribution summary
+            if quality_dist["Excellent"] + quality_dist["Good"] + quality_dist["Fair"] + quality_dist["Poor"] > 0:
+                st.markdown(f"""
+                <div style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    <span class="badge badge-quality-excellent">{quality_dist['Excellent']} Excellent</span>
+                    <span class="badge badge-quality-good">{quality_dist['Good']} Good</span>
+                    <span class="badge badge-quality-fair">{quality_dist['Fair']} Fair</span>
+                    <span class="badge badge-quality-poor">{quality_dist['Poor']} Poor</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Render clickable trial cards
+            for trial in trials:
+                score = trial.get('design_quality_score')
+                category = get_quality_category(score) if score is not None else "Unscored"
+                
+                if category == "Excellent":
+                    badge_class = "badge-quality-excellent"
+                elif category == "Good":
+                    badge_class = "badge-quality-good"
+                elif category == "Fair":
+                    badge_class = "badge-quality-fair"
+                else:
+                    badge_class = "badge-quality-poor"
+
+                quality_text = f"{score} - {category}" if score is not None else "Scoring..."
+                
+                # Card container
+                with st.container():
+                    col_trial_info, col_trial_action = st.columns([4, 1])
+                    with col_trial_info:
+                        st.markdown(f"""
+                        <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-glass); margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-family: var(--font-mono); color: var(--neon-blue); font-size: 0.8rem;">{trial.get('nct_id')}</span>
+                                <span class="badge {badge_class}">{quality_text}</span>
+                            </div>
+                            <div style="font-weight: 500; margin-bottom: 4px;">{trial.get('title', 'No Title')}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                {trial.get('phase', 'Unknown Phase')} • {trial.get('status', 'Unknown Status')} • {trial.get('enrollment', 'N/A')} Enrolled
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col_trial_action:
+                        if st.button("View Details", key=f"btn_trial_{trial['nct_id']}", use_container_width=True):
+                            st.session_state.selected_trial = trial
+                            st.rerun()
         else:
             st.info("No clinical trial data available.")
+            
+    # Check for selected trial to show modal/detail view
+    if 'selected_trial' in st.session_state and st.session_state.selected_trial:
+        trial = st.session_state.selected_trial
+        
+        @st.dialog("Trial Details", width="large")
+        def show_trial_details():
+            st.markdown(f"### {trial.get('title')}")
+            st.markdown(f"**NCT ID:** `{trial.get('nct_id')}`")
+            
+            st.markdown("---")
+            
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.markdown(f"**Phase:** {trial.get('phase')}")
+                st.markdown(f"**Status:** {trial.get('status')}")
+                st.markdown(f"**Start Date:** {trial.get('start_date')}")
+            with col_t2:
+                st.markdown(f"**Enrollment:** {trial.get('enrollment')}")
+                st.markdown(f"**Conditions:** {trial.get('condition')}")
+                st.markdown(f"**Sponsor:** {trial.get('sponsor')}")
+                
+            st.markdown("---")
+            st.markdown("### Design Quality Analysis")
+            st.json(trial.get('design_quality_reasoning', {}))
+            
+            if st.button("Close"):
+                st.session_state.selected_trial = None
+                st.rerun()
+                
+        show_trial_details()
 
     # ==================
     # TAB 4: SAFETY
@@ -499,9 +790,15 @@ if st.session_state.selected_drug:
 col1, col2, col3 = st.columns([2, 1, 1])
 
 with col1:
-    search_query = st.text_input(
+    # Fetch all drug names for autocomplete
+    all_drugs_response = db.client.table('drug').select('name').execute()
+    drug_names = [d['name'] for d in all_drugs_response.data] if all_drugs_response.data else []
+    
+    search_query = st.selectbox(
         "Search compounds",
-        placeholder="Enter drug name (e.g., Atezolizumab, psilocybin, metformin...)",
+        options=drug_names,
+        index=None,
+        placeholder="Select a drug (e.g., Psilocybin, Metformin...)",
         label_visibility="collapsed"
     )
 
@@ -521,7 +818,7 @@ with col3:
 
 st.markdown("---")
 
-# Metrics Row
+# Metrics Row with shadcn metric_card components
 metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
 # Fetch metrics
@@ -572,13 +869,20 @@ st.markdown("---")
 
 # Query drugs with trials
 if search_query:
-    # Search for drugs matching query
-    drugs_response = db.client.table('drug').select('*').ilike('name', f'%{search_query}%').limit(20).execute()
-    drugs = drugs_response.data
+    # Search for drugs matching query (exact match from selectbox)
+    drugs_response = db.client.table('drug').select('*').eq('name', search_query).execute()
+    raw_drugs = drugs_response.data
 else:
     # Show recent drugs
-    drugs_response = db.client.table('drug').select('*').order('created_at', desc=True).limit(20).execute()
-    drugs = drugs_response.data
+    drugs_response = db.client.table('drug').select('*').order('created_at', desc=True).limit(100).execute()
+    raw_drugs = drugs_response.data
+
+# Apply smart deduplication to collapse dosage variants
+# Example: "Metformin 500mg", "Metformin 850mg" → single "Metformin" entry
+drugs = get_unique_drugs(raw_drugs) if raw_drugs else []
+
+# Limit to 20 unique drugs for display
+drugs = drugs[:20]
 
 # Display results
 if drugs:
@@ -598,20 +902,33 @@ if drugs:
         else:
             trials = []
 
-        # Build drug card
+        # Build drug card with shadcn components
         trial_count = len(trials)
+
+        # Use normalized display_name for cleaner UI
+        display_name = drug.get('display_name', drug['name'])
+
+        # Show variant info if drug has multiple dosage forms
+        variant_info = ""
+        if should_show_variant_info(drug):
+            variant_info = f" ({format_variant_info(drug.get('variant_count', 1))})"
 
         # Create clickable button to view drug details
         col_btn, col_info = st.columns([3, 1])
         with col_btn:
-            if st.button(f"**{drug['name']}** — {trial_count} trials", key=f"drug_{drug['id']}", use_container_width=True):
+            if st.button(
+                f"{display_name}{variant_info} — {trial_count} trials",
+                key=f"drug_btn_{drug['id']}",
+                use_container_width=True
+            ):
                 st.session_state.selected_drug = drug['id']
                 st.rerun()
 
         with col_info:
             phases = list(set([t['phase'] for t in trials if t['phase']]))
             if phases:
-                st.markdown(f"<span class='badge badge-phase'>Phase {', '.join(sorted(phases))}</span>", unsafe_allow_html=True)
+                phase_text = ', '.join(sorted(phases))
+                ui.badges(badge_list=[(f"Phase {phase_text}", "default")], key=f"badge_{drug['id']}")
 else:
     st.info("No compounds found. Try a different search term.")
 

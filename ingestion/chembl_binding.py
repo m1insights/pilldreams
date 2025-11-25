@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.supabase_client import get_client
+from core.drug_name_utils import normalize_drug_name
 
 load_dotenv()
 logger = structlog.get_logger()
@@ -306,19 +307,32 @@ class ChEMBLIngestionPipeline:
         """
         logger.info("Starting ChEMBL binding data ingestion", max_drugs=max_drugs or "all")
 
-        # Step 1: Fetch all drugs from database
-        drugs_response = self.db.client.table('drug').select('id, name').execute()
-        drugs = drugs_response.data
+        # Step 1: Fetch all drugs from database with pagination
+        # Supabase has a default limit of 1000, need to paginate through all
+        drugs = []
+        page_size = 1000
+        offset = 0
+
+        while True:
+            drugs_response = self.db.client.table('drug').select('id, name').range(offset, offset + page_size - 1).execute()
+            if not drugs_response.data:
+                break
+            drugs.extend(drugs_response.data)
+            logger.info(f"Fetched drugs batch", offset=offset, count=len(drugs_response.data), total_so_far=len(drugs))
+
+            if len(drugs_response.data) < page_size:
+                break  # Last page
+            offset += page_size
+
+            if max_drugs and len(drugs) >= max_drugs:
+                drugs = drugs[:max_drugs]
+                break
 
         if not drugs:
             logger.warning("No drugs found in database")
             return
 
-        # Limit if specified
-        if max_drugs:
-            drugs = drugs[:max_drugs]
-
-        logger.info("Fetched drugs from database", count=len(drugs))
+        logger.info("Fetched all drugs from database", total_count=len(drugs))
 
         # Step 2: For each drug, fetch ChEMBL data
         total_drugs_processed = 0
@@ -330,14 +344,18 @@ class ChEMBLIngestionPipeline:
             drug_id = drug["id"]
             drug_name = drug["name"]
 
+            # Normalize drug name for API query (remove dosage info)
+            normalized_name = normalize_drug_name(drug_name)
+
             logger.info(
                 "Processing drug",
                 index=f"{i}/{len(drugs)}",
-                drug=drug_name
+                drug=drug_name,
+                normalized=normalized_name if normalized_name != drug_name else None
             )
 
-            # Search for molecule in ChEMBL
-            chembl_id = self.api.search_molecule(drug_name)
+            # Search for molecule in ChEMBL using normalized name
+            chembl_id = self.api.search_molecule(normalized_name)
 
             if not chembl_id:
                 logger.debug("No ChEMBL ID found", drug=drug_name)
