@@ -98,8 +98,8 @@ with tab2:
                 # Display table with Score
                 st.dataframe(
                     df_assets[[
-                        "name", "phase", "relative_score", "target_evidence_score"
-                    ]].sort_values("relative_score", ascending=False),
+                        "name", "phase", "total_score", "bio_score", "chem_score", "tractability_score"
+                    ]].sort_values("total_score", ascending=False),
                     use_container_width=True
                 )
                 
@@ -112,8 +112,18 @@ with tab2:
                     
                     st.markdown(f"### {asset_data['name']}")
                     st.write(f"**Phase:** {asset_data['phase']}")
-                    st.metric("Relative Score", f"{asset_data['relative_score']:.1f}/100")
-                    st.write(f"**Target Evidence Score:** {asset_data['target_evidence_score']:.4f}")
+                    
+                    # Score Breakdown
+                    st.markdown("#### Scoring Analysis")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Score", f"{asset_data['total_score']:.1f}" if pd.notnull(asset_data['total_score']) else "N/A")
+                    with col2:
+                        st.metric("Bio Score", f"{asset_data['bio_score']:.1f}" if pd.notnull(asset_data['bio_score']) else "N/A")
+                    with col3:
+                        st.metric("Chem Score", f"{asset_data['chem_score']:.1f}" if pd.notnull(asset_data['chem_score']) else "N/A")
+                    with col4:
+                        st.metric("Tract Score", f"{asset_data['tractability_score']:.1f}" if pd.notnull(asset_data['tractability_score']) else "N/A")
                     
                     # Fetch targets
                     targets_response = requests.get(f"{FASTAPI_URL}/pipeline-assets/{asset_data['id']}/targets")
