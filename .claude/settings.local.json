@@ -21,7 +21,12 @@
       "Bash(psql:*)",
       "Bash(npx create-next-app:*)",
       "Bash(npx create-next-app@latest:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(python scripts/analyze_chembl_mapping.py:*)",
+      "WebFetch(domain:www.sec.gov)",
+      "WebFetch(domain:www.nasdaq.com)",
+      "Bash(python:*)",
+      "mcp__playwright__browser_evaluate"
     ]
   },
   "enableAllProjectMcpServers": true,

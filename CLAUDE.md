@@ -4,11 +4,25 @@
 
 ---
 
+## Strategic Direction (Updated 2025-11-25)
+
+**PIVOT**: Building a **NASDAQ Biotechnology Index (NBI) Company Intelligence Platform**.
+
+**Why**: NBI is a curated, authoritative index of biotech stocks (tracked by IBB ETF) with:
+- **247 companies** - finite, manageable, and regularly updated by NASDAQ
+- Direct tie to investor interests (ticker symbols, SEC filings)
+- Cleaner pipeline data via company disclosures
+- Clear market relevance (these are the companies investors actually trade)
+
+**Scope**: All 247 NBI member companies loaded into database with `is_nbi_member=true` flag.
+
+---
+
 ## Project Overview
 
-**pilldreams** is a Streamlit web application providing drug intelligence for biotech investors, PharmD/MD students, clinicians, and patient advocates.
+**pilldreams** is a Streamlit web application providing **biopharma company and pipeline intelligence** for biotech investors, PharmD/MD students, clinicians, and patient advocates.
 
-**Core Features**: Drug search → Approval probability, mechanism of action, trial progress, safety signals, evidence strength, composite scores, AI chat.
+**New Flow**: Company Search → Pipeline Drugs → Approval Probability, Mechanism, Trials, Safety, Evidence, AI Chat
 
 ---
 
@@ -48,7 +62,57 @@
 
 ---
 
+## Company Data (Primary Entity)
+
+**Source**: NASDAQ Biotechnology Index (NBI) - scraped from investing.com/indices/nasdaq-biotechnology-components
+
+**Scripts**:
+- `ingestion/nasdaq_companies.py` - Keyword-based NASDAQ biopharma list (681 companies)
+- `ingestion/update_nbi_members.py` - Mark NBI members in database
+- `ingestion/add_missing_nbi.py` - Add missing NBI companies
+
+**Current Coverage**:
+- **247 NBI member companies** (is_nbi_member=true)
+- ~681 total NASDAQ biopharma companies in database
+
+**Key Companies Include**:
+- Large Cap: VRTX, GILD, AMGN, REGN, BIIB, MRNA, BNTX
+- Mid Cap: SAREPTA, HALOZYME, JAZZ, EXEL, NBIX
+- Small Cap: Hundreds of clinical-stage biotechs
+
+**Data Files**:
+- `data/nbi_companies.csv` - 247 NBI companies with investing.com URLs
+- `data/nasdaq_biopharma_companies.csv` - Full biopharma list
+
+**Usage**:
+```bash
+# Update NBI member flags
+python ingestion/update_nbi_members.py --update
+
+# Add missing NBI companies
+python ingestion/add_missing_nbi.py
+
+# Verify NBI count
+python ingestion/update_nbi_members.py --verify
+```
+
+---
+
 ## Database Tables (Supabase)
+
+### NEW: Company-Centric Tables (Schema: `core/schema_company.sql`)
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `company` | Biopharma companies | ticker, name, exchange, market_category, cik, is_nbi_member, market_cap, therapeutic_focus[] |
+| `company_drug` | Company-drug links | company_id, drug_id, development_stage, is_lead_program |
+| `catalyst` | Stock-moving events | company_id, drug_id, catalyst_type, expected_date, confidence, is_binary_event |
+| `stock_price` | Historical prices | company_id, price_date, OHLC, volume |
+| `company_financials` | Quarterly financials | company_id, fiscal_quarter, revenue, cash, r_and_d_expense, runway_months |
+
+**Note**: Run `core/schema_company.sql` in Supabase SQL Editor to create these tables.
+
+### Existing Drug Tables (Will Link to Companies)
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
@@ -64,12 +128,22 @@
 
 ## Data Sources & Coverage
 
+### Company Data
+
+| Source | Data | Coverage |
+|--------|------|----------|
+| NASDAQ Biotechnology Index | NBI members | **247 companies** (is_nbi_member=true) |
+| Nasdaq Trader | Listed securities | 681 total biopharma companies |
+| SEC EDGAR | CIK mapping | ~600 CIK identifiers for filings |
+
+### Existing Drug Data (Will Enrich Pipelines)
+
 | Source | Data | Current Coverage |
 |--------|------|------------------|
 | ClinicalTrials.gov | Trials | 26,206 drugs, 28,504 trials |
-| ChEMBL | Target bindings | ~5,000+ bindings (ingestion running) |
-| PubMed | RCTs, meta-analyses | ~6,000+ drugs (ingestion running) |
-| OpenFDA | Adverse events | ~87,000+ AE records (ingestion running) |
+| ChEMBL | Target bindings | ~5,000+ bindings |
+| PubMed | RCTs, meta-analyses | ~6,000+ drugs |
+| OpenFDA | Adverse events | ~87,000+ AE records |
 
 ---
 
@@ -219,3 +293,17 @@ DRUG → TARGET (ChEMBL)
 - Normalization happens at query time via `drug_name_utils.normalize_drug_name()`
 - App is for **informational purposes only** - not medical advice
 - Respect API rate limits and terms of service
+
+---
+
+## Science Tab Roadmap (2025-11-25)
+
+### Phase 1: Mechanism & Binding (Immediate)
+1.  **Enrich Drugs**: Run `ingestion/chembl_binding.py` to link drugs to ChEMBL IDs and fetch binding affinities (Ki, IC50).
+2.  **Fetch Targets**: Use ChEMBL IDs to identify protein targets (UniProt IDs).
+3.  **Visualize**: Use `stmol` and `py3Dmol` to render 3D protein structures (PDB) in the Science tab.
+
+### Phase 2: Validation & Context
+1.  **Open Targets**: Fetch target-disease association scores.
+2.  **PubMed**: Display publication counts for Drug+Disease pairs.
+

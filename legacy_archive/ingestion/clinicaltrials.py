@@ -41,6 +41,7 @@ class ClinicalTrialsAPI:
         self,
         phase: Optional[List[str]] = None,
         status: Optional[List[str]] = None,
+        sponsor: Optional[str] = None,
         page_size: int = 1000,
         max_results: Optional[int] = None
     ) -> List[Dict]:
@@ -50,6 +51,7 @@ class ClinicalTrialsAPI:
         Args:
             phase: List of phases to include (e.g., ["PHASE1", "PHASE2", "PHASE3"])
             status: List of statuses (e.g., ["RECRUITING", "ACTIVE_NOT_RECRUITING"])
+            sponsor: Lead sponsor name to filter by
             page_size: Number of results per page (max 1000)
             max_results: Maximum total results to fetch (None = all)
 
@@ -75,6 +77,7 @@ class ClinicalTrialsAPI:
             "Searching ClinicalTrials.gov",
             phases=phase,
             statuses=status,
+            sponsor=sponsor,
             max_results=max_results or "unlimited"
         )
 
@@ -98,6 +101,27 @@ class ClinicalTrialsAPI:
                 # Status filter in query
                 status_query = " OR ".join([f'AREA[OverallStatus]"{s}"' for s in status])
                 query_parts.append(f"({status_query})")
+
+            if sponsor:
+                # Generate sponsor variations to catch "Inc." vs "Inc", "," vs "", etc.
+                variations = {sponsor}
+                
+                # Variation 1: Remove punctuation
+                no_punct = sponsor.replace(",", "").replace(".", "")
+                variations.add(no_punct)
+                
+                # Variation 2: Remove common suffixes
+                suffixes = [" Inc", " Corp", " Ltd", " LLC", " plc", " S.A.", " NV"]
+                base_name = no_punct
+                for suffix in suffixes:
+                    if base_name.endswith(suffix):
+                        base_name = base_name[:-len(suffix)]
+                        variations.add(base_name)
+                        break # Only remove last suffix
+                
+                # Build OR query for all variations
+                sponsor_query = " OR ".join([f'AREA[LeadSponsorName]"{v}"' for v in variations])
+                query_parts.append(f"({sponsor_query})")
 
             if query_parts:
                 params["query.cond"] = " AND ".join(query_parts)
@@ -173,6 +197,15 @@ class ClinicalTrialsAPI:
             intervention_type = intervention.get("type", "").upper()
 
             # Only include drug-like interventions (investor-relevant)
+            # Filter out generic terms
+            name = intervention.get("name", "").strip()
+            if not name:
+                continue
+                
+            junk_terms = ["PLACEBO", "STANDARD OF CARE", "CONTROL", "BEST SUPPORTIVE CARE", "INFLAMMATION", "HEALTHY VOLUNTEERS"]
+            if any(term in name.upper() for term in junk_terms):
+                continue
+
             if intervention_type in ["DRUG", "BIOLOGICAL", "GENETIC", "DIETARY_SUPPLEMENT"]:
                 interventions.append({
                     "name": intervention.get("name", "").strip(),
@@ -261,6 +294,7 @@ class TrialIngestionPipeline:
 
         # Extract NCT ID
         nct_id = id_module.get("nctId", "")
+        title = id_module.get("officialTitle") or id_module.get("briefTitle", "Unknown Title")
 
         # Extract phase
         phases = design_module.get("phases", [])
@@ -273,6 +307,7 @@ class TrialIngestionPipeline:
         # Extract sponsor type
         lead_sponsor = sponsor_module.get("leadSponsor", {})
         sponsor_type = lead_sponsor.get("class", "UNKNOWN")
+        sponsor_name = lead_sponsor.get("name", "UNKNOWN")
 
         # Extract condition
         conditions = conditions_module.get("conditions", [])
@@ -304,10 +339,12 @@ class TrialIngestionPipeline:
 
         return {
             "nct_id": nct_id,
+            "title": title,
             "phase": phase,
             "status": status,
             "condition": condition,
             "sponsor_type": sponsor_type,
+            "sponsor": sponsor_name,
             "enrollment": enrollment,
             "start_date": start_date,
             "primary_completion_date": primary_completion_date,
@@ -319,17 +356,19 @@ class TrialIngestionPipeline:
             "is_blinded": is_blinded
         }
 
-    def ingest_trials(self, max_trials: Optional[int] = None):
+    def ingest_trials(self, max_trials: Optional[int] = None, sponsor: Optional[str] = None, company_id: Optional[str] = None):
         """
         Main ingestion pipeline.
 
         Args:
             max_trials: Maximum number of trials to ingest (None = all)
+            sponsor: Filter by sponsor name
+            company_id: If provided, link found drugs to this company ID
         """
-        logger.info("Starting trial ingestion pipeline", max_trials=max_trials or "unlimited")
+        logger.info("Starting trial ingestion pipeline", max_trials=max_trials or "unlimited", sponsor=sponsor)
 
         # Step 1: Fetch trials from ClinicalTrials.gov
-        trials = self.api.search_trials(max_results=max_trials)
+        trials = self.api.search_trials(max_results=max_trials, sponsor=sponsor)
 
         if not trials:
             logger.warning("No trials found")
@@ -392,12 +431,14 @@ class TrialIngestionPipeline:
 
         trials_inserted = 0
         interventions_inserted = 0
+        company_links_inserted = 0
 
         for trial in trials:
             try:
                 # Extract metadata
                 trial_metadata = self.extract_trial_metadata(trial)
                 nct_id = trial_metadata["nct_id"]
+                phase = trial_metadata["phase"]
 
                 # Find all compounds for this trial
                 compound_names = trial_interventions.get(nct_id, [])
@@ -414,14 +455,25 @@ class TrialIngestionPipeline:
 
                 # Add drug_id to metadata
                 trial_metadata["drug_id"] = drug_id
+                
+                # Add sponsor_company_id if provided
+                if company_id:
+                    trial_metadata["sponsor_company_id"] = company_id
 
                 # Insert trial (skip if exists) - lowercase table name
                 existing = self.db.client.table("trial").select("nct_id").eq("nct_id", nct_id).execute()
 
                 if not existing.data:
+                    # Sponsor column now exists, so we can include it.
+
+                        
                     self.db.client.table("trial").insert(trial_metadata).execute()
                     trials_inserted += 1
                     logger.debug("Inserted trial", nct_id=nct_id)
+                else:
+                    # Update sponsor_company_id if needed
+                    if company_id:
+                        self.db.client.table("trial").update({"sponsor_company_id": company_id}).eq("nct_id", nct_id).execute()
 
                 # NEW: Insert ALL compounds into junction table (many-to-many)
                 for compound_name in compound_names:
@@ -442,9 +494,23 @@ class TrialIngestionPipeline:
                             }).execute()
                             interventions_inserted += 1
                             logger.debug("Linked intervention", nct_id=nct_id, drug=compound_name)
+                            
+                        # NEW: Link to Company (if company_id provided)
+                        if company_id:
+                            # Determine stage
+                            stage = f"Phase {phase}" if phase else "Preclinical"
+                            is_lead = phase == "3"
+                            
+                            self.db.client.table("company_drug").upsert({
+                                "company_id": company_id,
+                                "drug_id": compound_id,
+                                "development_stage": stage,
+                                "is_lead_program": is_lead
+                            }, on_conflict="company_id, drug_id").execute()
+                            company_links_inserted += 1
 
                     except Exception as e:
-                        logger.error("Failed to insert intervention link", nct_id=nct_id, drug=compound_name, error=str(e))
+                        logger.error("Failed to insert intervention/company link", nct_id=nct_id, drug=compound_name, error=str(e))
 
             except Exception as e:
                 logger.error("Failed to insert trial", nct_id=nct_id, error=str(e))
@@ -453,7 +519,8 @@ class TrialIngestionPipeline:
             "Trial ingestion complete",
             trials_inserted=trials_inserted,
             compounds_inserted=len(compound_ids),
-            interventions_linked=interventions_inserted
+            interventions_linked=interventions_inserted,
+            company_links_created=company_links_inserted
         )
 
 

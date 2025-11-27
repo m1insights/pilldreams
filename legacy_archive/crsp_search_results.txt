@@ -1,0 +1,15 @@
+
+Title: CRISPR Therapeutics Investor Relations
+URL: http://ir.crisprtx.com/
+Snippet: CRISPR Therapeutics is a leading gene editing company focused on developing transformative gene-based medicines for serious diseases using its proprietary CRISPR/Cas9 platform.
+
+Title: CRISPR Therapeutics Pipeline
+URL: http://www.crisprtx.com/programs/pipeline
+Snippet: Our pipeline includes:
+1. Casgevy (exa-cel): CRISPR/Cas9-edited hematopoietic stem cells (Approved for Sickle Cell & Beta Thalassemia).
+2. CTX112: CD19-directed CAR T cell therapy (Phase 1 for B-cell malignancies).
+3. CTX131: CD70-directed CAR T cell therapy (Phase 1 for Solid Tumors).
+4. CTX310: In vivo CRISPR targeting Angiopoietin-like 3 (Phase 1 for Cardiovascular).
+5. CTX320: In vivo CRISPR targeting Lipoprotein(a) (Phase 1 for Cardiovascular).
+6. CTX460: In vivo CRISPR targeting SERPINA1 (Preclinical).
+7. GPC3 CAR T: Allogeneic CAR T for solid tumors (Preclinical/IND-enabling).

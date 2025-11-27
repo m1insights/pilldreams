@@ -118,8 +118,7 @@ label {
 /* Explicitly protect icon classes */
 .material-icons,
 .material-symbols-outlined,
-i,
-[class*="st-emotion-cache"] {
+i {
     font-family: 'Material Icons' !important;
 }
 
