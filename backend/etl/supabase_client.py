@@ -14,62 +14,117 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 else:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def upsert_drug(data: dict) -> int:
-    """Insert or update drug, return drug.id."""
-    if not supabase: return -1
-    result = supabase.table("drugs").upsert(
-        data, on_conflict="ot_drug_id"
-    ).execute()
-    return result.data[0]["id"]
+def upsert_epi_target(data: dict) -> str:
+    """Insert or update epi_target, return id."""
+    if not supabase: return None
+    # Assuming symbol is unique enough for upsert, or we use on_conflict on symbol?
+    # The schema doesn't strictly enforce unique symbol but it should be.
+    # Let's assume we upsert on symbol if we can, or just insert.
+    # Actually, for seeding, we might want to check existence.
+    # For now, let's use upsert on 'symbol' if we add a unique constraint, 
+    # but the schema didn't have one explicitly in the CREATE TABLE (just index).
+    # Let's try to upsert on 'symbol' if possible, or just insert if not exists.
+    # Supabase upsert requires a unique constraint.
+    # We should probably add a unique constraint to symbol in the migration if we want to upsert.
+    # For now, let's just insert and ignore conflicts or handle manually.
+    
+    # Better: Select by symbol, if exists return id, else insert.
+    existing = supabase.table("epi_targets").select("id").eq("symbol", data["symbol"]).execute()
+    if existing.data:
+        # Update?
+        supabase.table("epi_targets").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_targets").insert(data).execute()
+        return result.data[0]["id"]
 
-def insert_drug_indication(drug_id: int, efo_id: str, name: str, phase: str):
+def upsert_epi_drug(data: dict) -> str:
+    """Insert or update epi_drug, return id."""
+    if not supabase: return None
+    # Match on name or chembl_id or ot_drug_id
+    # Let's try matching on name first for the gold set seeding
+    existing = supabase.table("epi_drugs").select("id").eq("name", data["name"]).execute()
+    if existing.data:
+        supabase.table("epi_drugs").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_drugs").insert(data).execute()
+        return result.data[0]["id"]
+
+def insert_epi_drug_target(data: dict):
     if not supabase: return
-    supabase.table("drug_indications").insert({
-        "drug_id": drug_id,
-        "efo_disease_id": efo_id,
-        "disease_name": name,
-        "phase": phase
-    }).execute()
+    # Check if exists to avoid duplicates
+    existing = supabase.table("epi_drug_targets").select("id")\
+        .eq("drug_id", data["drug_id"])\
+        .eq("target_id", data["target_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_drug_targets").insert(data).execute()
 
-def insert_drug_target(drug_id: int, target_data: dict):
+def insert_epi_indication(data: dict) -> str:
+    if not supabase: return None
+    # Match on name or efo_id
+    if data.get("efo_id"):
+        existing = supabase.table("epi_indications").select("id").eq("efo_id", data["efo_id"]).execute()
+    else:
+        existing = supabase.table("epi_indications").select("id").eq("name", data["name"]).execute()
+        
+    if existing.data:
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_indications").insert(data).execute()
+        return result.data[0]["id"]
+
+def insert_epi_drug_indication(data: dict):
     if not supabase: return
-    supabase.table("drug_targets").insert({
-        "drug_id": drug_id,
-        **target_data
-    }).execute()
+    existing = supabase.table("epi_drug_indications").select("id")\
+        .eq("drug_id", data["drug_id"])\
+        .eq("indication_id", data["indication_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_drug_indications").insert(data).execute()
 
-def upsert_pipeline_asset(data: dict) -> int:
-    """Insert or update pipeline asset, return id."""
-    if not supabase: return -1
-    result = supabase.table("pipeline_assets").upsert(
-        data, on_conflict="ot_drug_id"
-    ).execute()
-    return result.data[0]["id"]
-
-def insert_pipeline_asset_indication(asset_id: int, efo_id: str, name: str, phase: str):
+def upsert_epi_scores(data: dict):
     if not supabase: return
-    supabase.table("pipeline_asset_indications").insert({
-        "pipeline_asset_id": asset_id,
-        "efo_disease_id": efo_id,
-        "disease_name": name,
-        "phase": phase
-    }).execute()
+    # Match on drug_id + indication_id
+    existing = supabase.table("epi_scores").select("id")\
+        .eq("drug_id", data["drug_id"])\
+        .eq("indication_id", data["indication_id"]).execute()
+    if existing.data:
+        supabase.table("epi_scores").update(data).eq("id", existing.data[0]["id"]).execute()
+    else:
+        supabase.table("epi_scores").insert(data).execute()
 
-def insert_pipeline_asset_target(asset_id: int, target_data: dict):
+def upsert_epi_signature(data: dict) -> str:
+    if not supabase: return None
+    existing = supabase.table("epi_signatures").select("id").eq("name", data["name"]).execute()
+    if existing.data:
+        supabase.table("epi_signatures").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_signatures").insert(data).execute()
+        return result.data[0]["id"]
+
+def insert_epi_signature_target(data: dict):
     if not supabase: return
-    supabase.table("pipeline_asset_targets").insert({
-        "pipeline_asset_id": asset_id,
-        **target_data
-    }).execute()
+    existing = supabase.table("epi_signature_targets").select("id")\
+        .eq("signature_id", data["signature_id"])\
+        .eq("target_id", data["target_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_signature_targets").insert(data).execute()
 
 def insert_chembl_metrics(data: dict):
     if not supabase: return
-    # We might link to drug_id OR pipeline_asset_id. 
-    # The data dict should contain one of them.
     supabase.table("chembl_metrics").insert(data).execute()
 
-def insert_target_biology_metrics(data: dict):
-    if not supabase: return
-    supabase.table("target_biology_metrics").upsert(
-        data, on_conflict="ot_target_id"
-    ).execute()
+def get_all_drug_indications():
+    if not supabase: return []
+    # Join with drugs to get drug name if needed, but IDs are enough
+    return supabase.table("epi_drug_indications").select("*").execute().data
+
+def get_drug_targets(drug_id: str):
+    if not supabase: return []
+    return supabase.table("epi_drug_targets").select("target_id, is_primary_target").eq("drug_id", drug_id).execute().data
+
+def get_epi_target(target_id: str):
+    if not supabase: return None
+    return supabase.table("epi_targets").select("ot_target_id, symbol").eq("id", target_id).single().execute().data
+

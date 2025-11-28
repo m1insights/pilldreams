@@ -1,309 +1,178 @@
 # pilldreams Project Context
 
 > **Project Directory**: `/Users/mananshah/Dev/pilldreams/`
+> **Last Updated**: 2025-11-28
 
 ---
 
-## Strategic Direction (Updated 2025-11-25)
+## Strategic Direction (Pivot: Epigenetics Oncology Intelligence)
 
-**PIVOT**: Building a **NASDAQ Biotechnology Index (NBI) Company Intelligence Platform**.
+**Core Philosophy**: We provide a specialized intelligence platform for **Epigenetic Oncology**. We evaluate experimental assets targeting epigenetic mechanisms (e.g., HDAC, BET, EZH2) in cancer.
 
-**Why**: NBI is a curated, authoritative index of biotech stocks (tracked by IBB ETF) with:
-- **247 companies** - finite, manageable, and regularly updated by NASDAQ
-- Direct tie to investor interests (ticker symbols, SEC filings)
-- Cleaner pipeline data via company disclosures
-- Clear market relevance (these are the companies investors actually trade)
-
-**Scope**: All 247 NBI member companies loaded into database with `is_nbi_member=true` flag.
+**Key Entities**:
+1.  **Targets**: Epigenetic regulators (writers, readers, erasers).
+2.  **Drugs**: Small molecules and biologics targeting these proteins.
+3.  **Indications**: Oncology indications where these targets are relevant.
 
 ---
 
-## Project Overview
+## The Intelligence Engine (Weighted Scoring)
 
-**pilldreams** is a Streamlit web application providing **biopharma company and pipeline intelligence** for biotech investors, PharmD/MD students, clinicians, and patient advocates.
+We score every pipeline asset (0-100) based on three layers of evidence:
 
-**New Flow**: Company Search → Pipeline Drugs → Approval Probability, Mechanism, Trials, Safety, Evidence, AI Chat
+### 1. Biological Rationale (BioScore)
+*   **Weight**: 50%
+*   **Source**: Open Targets (Genetics, Somatic Mutations, Animal Models).
+*   **Logic**: Does the target have strong biological validation for the disease?
+
+### 2. Chemistry Quality (ChemScore)
+*   **Weight**: 30%
+*   **Source**: ChEMBL (Bioactivity Data).
+*   **Metrics**:
+    *   **Potency**: $pXC_{50}$ (Best on-target activity).
+    *   **Selectivity**: $\Delta p$ (Difference vs. off-target).
+    *   **Richness**: Number of confirming experiments.
+
+### 3. Target Tractability (TractabilityScore)
+*   **Weight**: 20%
+*   **Source**: UniProt / Open Targets.
+*   **Logic**: Is the target "druggable"? (Small Molecule Tractability Buckets).
+
+**TotalScore Formula**:
+$$ TotalScore = 0.5 \times Bio + 0.3 \times Chem + 0.2 \times Tract $$
+*(With renormalization for missing data and floor caps for weak biology)*
+
+---
+
+## User Workflow: "Company-First" Watchlist
+
+We shifted from a global explorer to a privacy-focused **Watchlist** model.
+
+1.  **Search**: User searches for a company (e.g., "Vertex", "Lilly").
+2.  **Dashboard**: User views the company's stock chart (TradingView) and description.
+3.  **Follow**: User clicks "Follow" to add the company to their **Watchlist**.
+4.  **Intelligence**: The system then reveals the **Scored Pipeline Assets** for that company.
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: Streamlit + `streamlit-shadcn-ui`
-- **Database**: Supabase (PostgreSQL)
-- **Data Ingestion**: Python scripts (ClinicalTrials.gov, ChEMBL, PubMed, OpenFDA)
-- **AI**: Claude (Anthropic SDK)
-- **Visualization**: Plotly, RDKit (molecules)
+*   **Backend**: FastAPI (`backend/main.py`)
+*   **Database**: Supabase (PostgreSQL)
+*   **Frontend**: Next.js (`frontend/`)
+*   **ETL**: Python Scripts (`backend/etl/`)
+    *   `open_targets.py`: Disease & Drug ingestion.
+    *   `chembl.py`: Chemistry data.
+    *   `companies.py`: Company data via `yfinance`.
+    *   `clinicaltrials.py`: CT.gov API v2 client.
+    *   `ctgov_pipeline.py`: Full CT.gov ingestion pipeline with LLM classification.
 
 ---
 
-## Project Structure
+## Key Commands
 
-```
-/pilldreams
-├── app/
-│   ├── main.py              # Streamlit entry point
-│   ├── styles/custom.css    # Design system (dark theme, glass morphism)
-│   └── components/          # Reusable UI components
-├── core/
-│   ├── scoring.py           # Scoring algorithms
-│   ├── drug_name_utils.py   # Drug name normalization
-│   ├── trial_design_scorer.py
-│   ├── competitor_analysis.py
-│   └── fda_precedent.py
-├── ingestion/
-│   ├── clinicaltrials.py    # Trial data
-│   ├── chembl_binding.py    # Target binding affinities
-│   ├── pubmed_evidence.py   # RCT/meta-analysis counts
-│   ├── openfda_safety.py    # Adverse events
-│   └── orange_book_patents.py
-├── requirements.txt
-└── CLAUDE.md
-```
-
----
-
-## Company Data (Primary Entity)
-
-**Source**: NASDAQ Biotechnology Index (NBI) - scraped from investing.com/indices/nasdaq-biotechnology-components
-
-**Scripts**:
-- `ingestion/nasdaq_companies.py` - Keyword-based NASDAQ biopharma list (681 companies)
-- `ingestion/update_nbi_members.py` - Mark NBI members in database
-- `ingestion/add_missing_nbi.py` - Add missing NBI companies
-
-**Current Coverage**:
-- **247 NBI member companies** (is_nbi_member=true)
-- ~681 total NASDAQ biopharma companies in database
-
-**Key Companies Include**:
-- Large Cap: VRTX, GILD, AMGN, REGN, BIIB, MRNA, BNTX
-- Mid Cap: SAREPTA, HALOZYME, JAZZ, EXEL, NBIX
-- Small Cap: Hundreds of clinical-stage biotechs
-
-**Data Files**:
-- `data/nbi_companies.csv` - 247 NBI companies with investing.com URLs
-- `data/nasdaq_biopharma_companies.csv` - Full biopharma list
-
-**Usage**:
+### Run the Application
 ```bash
-# Update NBI member flags
-python ingestion/update_nbi_members.py --update
+# Start Backend (FastAPI)
+cd /Users/mananshah/Dev/pilldreams
+source venv/bin/activate
+python3 -m uvicorn backend.main:app --reload --port 8000
 
-# Add missing NBI companies
-python ingestion/add_missing_nbi.py
-
-# Verify NBI count
-python ingestion/update_nbi_members.py --verify
+# Start Frontend (Next.js) - in separate terminal
+cd /Users/mananshah/Dev/pilldreams/frontend && npm run dev
 ```
 
----
+### Run ETL Pipeline (Epigenetics Core Data)
 
-## Database Tables (Supabase)
-
-### NEW: Company-Centric Tables (Schema: `core/schema_company.sql`)
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `company` | Biopharma companies | ticker, name, exchange, market_category, cik, is_nbi_member, market_cap, therapeutic_focus[] |
-| `company_drug` | Company-drug links | company_id, drug_id, development_stage, is_lead_program |
-| `catalyst` | Stock-moving events | company_id, drug_id, catalyst_type, expected_date, confidence, is_binary_event |
-| `stock_price` | Historical prices | company_id, price_date, OHLC, volume |
-| `company_financials` | Quarterly financials | company_id, fiscal_quarter, revenue, cash, r_and_d_expense, runway_months |
-
-**Note**: Run `core/schema_company.sql` in Supabase SQL Editor to create these tables.
-
-### Existing Drug Tables (Will Link to Companies)
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `drug` | Drug master list | name, synonyms, is_approved, chembl_id |
-| `target` | Molecular targets | symbol, description, uniprot_id |
-| `drugtarget` | Drug-target bindings | drug_id, target_id, affinity_value, affinity_unit |
-| `trial` | Clinical trials | nct_id, drug_id, phase, status, condition, enrollment |
-| `safetyaggregate` | Adverse events | drug_id, meddra_term, case_count, is_serious |
-| `evidenceaggregate` | Publication counts | drug_id, n_rcts, n_meta_analyses |
-| `drugscore` | Computed scores | trial_score, safety_score, evidence_score, approval_probability |
-
----
-
-## Data Sources & Coverage
-
-### Company Data
-
-| Source | Data | Coverage |
-|--------|------|----------|
-| NASDAQ Biotechnology Index | NBI members | **247 companies** (is_nbi_member=true) |
-| Nasdaq Trader | Listed securities | 681 total biopharma companies |
-| SEC EDGAR | CIK mapping | ~600 CIK identifiers for filings |
-
-### Existing Drug Data (Will Enrich Pipelines)
-
-| Source | Data | Current Coverage |
-|--------|------|------------------|
-| ClinicalTrials.gov | Trials | 26,206 drugs, 28,504 trials |
-| ChEMBL | Target bindings | ~5,000+ bindings |
-| PubMed | RCTs, meta-analyses | ~6,000+ drugs |
-| OpenFDA | Adverse events | ~87,000+ AE records |
-
----
-
-## Scoring Engine
-
-Location: `core/scoring.py`
-
-| Score | Range | Based On |
-|-------|-------|----------|
-| Trial Progress | 0-100 | Highest phase, completion rate, sponsor type, enrollment |
-| Safety | 0-100 | Serious AE frequency, PRR disproportionality |
-| Evidence Maturity | 0-100 | RCT count, meta-analyses, recency |
-| Approval Probability | 0-1 | Weighted composite (pipeline drugs) |
-| Net Benefit | 0-100 | Weighted composite (approved drugs) |
-
----
-
-## Development Commands
+**IMPORTANT**: The ETL uses CURATED seed files, NOT automated Open Targets queries.
+This prevents polluting the database with irrelevant drugs (e.g., metformin showing up as an "HDAC drug").
 
 ```bash
-# Run app
-streamlit run app/main.py
+cd /Users/mananshah/Dev/pilldreams
+source venv/bin/activate
 
-# Run ingestion (examples)
-python ingestion/chembl_binding.py
-python ingestion/pubmed_evidence.py
-python ingestion/openfda_safety.py
+# Step 01: Seed Epigenetic Targets (67 targets from CSV)
+python -m backend.etl.01_seed_epi_targets
 
-# Check background processes
-ps aux | grep -E "chembl_binding|pubmed_evidence|openfda_safety" | grep -v grep
+# Step 02: Seed Gold Drugs (12 FDA-approved epigenetic drugs from CSV)
+python -m backend.etl.02_build_epi_gold_drugs
+
+# Step 03: DELETED - was pulling polluted Phase 1-3 data
+
+# Step 04: Compute ChEMBL Metrics (potency, selectivity)
+python -m backend.etl.04_compute_chembl_metrics
+
+# Step 05: Compute BioScore & TractabilityScore (Open Targets associations)
+python -m backend.etl.05_compute_bio_tract_scores
+
+# Step 06: Compute TotalScore (50% Bio + 30% Chem + 20% Tract)
+python -m backend.etl.06_compute_chem_and_total_score
+
+# Step 07: Seed DREAM Complex Signature
+python -m backend.etl.07_seed_signatures
 ```
 
----
-
-## API Rate Limits
-
-| API | Limit |
-|-----|-------|
-| ClinicalTrials.gov | No strict limit (be respectful) |
-| ChEMBL | Rate limited - use caching |
-| PubMed | 3/sec without API key, 10/sec with key |
-| OpenFDA | 240/min (40/sec) |
+### Curated Seed Files
+- `backend/etl/seed_epi_targets.csv` - 67 epigenetic targets (DNMTs, HDACs, HMTs, KDMs, BETs, TETs, SIRTs, etc.)
+- `backend/etl/seed_gold_drugs.csv` - 12 FDA-approved epigenetic oncology drugs
 
 ---
 
-## Current Status (2025-11-24)
+## Database Schema (Key Tables)
 
-### Active Ingestion Jobs
-Three background processes running with drug name normalization:
+### Epigenetics Core Tables
+*   `epi_targets`: 67 epigenetic targets (symbol, family, class, Ensembl ID, UniProt ID)
+*   `epi_drugs`: 12 gold drugs (name, ChEMBL ID, FDA approval date, source)
+*   `epi_drug_targets`: Drug-target links with mechanism of action
+*   `epi_indications`: Oncology indications with EFO IDs
+*   `epi_drug_indications`: Drug-indication links with approval status
+*   `epi_scores`: BioScore, ChemScore, TractabilityScore, TotalScore per drug-indication
+*   `epi_signatures`: Gene signatures (e.g., DREAM complex)
+*   `epi_signature_targets`: Signature-target links
+*   `chembl_metrics`: Chemistry data (potency, selectivity, richness)
 
-```bash
-# Check status
-tail -30 chembl_normalized_v4.log
-tail -30 pubmed_normalized_v4.log
-tail -30 openfda_normalized_v4.log
-```
+### Current Data (as of 2025-11-28)
+| Table | Count |
+|-------|-------|
+| `epi_targets` | 67 |
+| `epi_drugs` | 12 |
+| `epi_indications` | 7 |
+| `epi_scores` | 12 |
+| `epi_signatures` | 1 (DREAM) |
 
-### Roadmap: Pharmacology Intelligence Platform
+### Legacy Tables (from old schema, may be unused)
+*   `companies`: Company metadata (Ticker, Market Cap).
+*   `company_assets`: Link table (Company -> Asset).
+*   `user_watchlist`: User's followed companies.
 
-**Strategic Direction**: Differentiate on target science + AI synthesis. Make PhD-level pharmacology data accessible.
-
-#### Phase 1: Complete Current Ingestion (In Progress)
-- ChEMBL target bindings (~15% complete)
-- PubMed RCT/meta-analysis counts (~22% complete)
-- OpenFDA adverse events (~1.5% complete)
-
-#### Phase 2: Target Science APIs (Week 1-2)
-
-| Order | API | Table | Key Fields | Effort |
-|-------|-----|-------|------------|--------|
-| 1 | **Open Targets** | `target_disease` | target_id, disease_id, disease_name, association_score, genetic_evidence | 2-3 hrs |
-| 2 | **DisGeNET** | `gene_disease` | gene_symbol, disease_name, score, pmid_count | 2-3 hrs |
-| 3 | **KEGG** | `target_pathway` | target_id, pathway_id, pathway_name, pathway_class | 2-3 hrs |
-| 4 | **STRING** | `protein_interaction` | protein_a, protein_b, combined_score, experimental_score | 2-3 hrs |
-
-#### Phase 3: AI Chat Integration (Week 3)
-
-| Component | Description | Effort |
-|-----------|-------------|--------|
-| Context Builder | Aggregate drug + targets + diseases + pathways + interactions | 3-4 hrs |
-| Chat UI | Streamlit chat interface in drug detail view | 2-3 hrs |
-| Prompt Engineering | System prompts for pharmacology synthesis | 2-3 hrs |
-| Response Formatting | Citations, confidence indicators | 2-3 hrs |
-
-#### Phase 4: UI for New Data (Week 4)
-
-| Feature | Tab | Description |
-|---------|-----|-------------|
-| Disease Associations | Pharmacology | "This target is linked to: Depression (0.85), Anxiety (0.72)..." |
-| Pathway Visualization | Pharmacology | KEGG pathway diagram or simplified view |
-| Interaction Network | Pharmacology | STRING protein network (top 10 interactors) |
-| AI Chat Tab | New Tab | Full conversational interface with context |
-
-#### Data Flow Architecture
-
-```
-DRUG → TARGET (ChEMBL)
-              ↓
-         ┌────┴────┐
-         ↓         ↓
-   DISEASE    PATHWAY    INTERACTIONS
-   (Open      (KEGG)     (STRING)
-   Targets +
-   DisGeNET)
-         └────┬────┘
-              ↓
-         AI SYNTHESIS
-         (Claude)
-```
-
-#### AI Chat Capabilities (Target)
-
-| Question Type | Data Required | Example |
-|---------------|---------------|---------|
-| Mechanism Explainer | ChEMBL + KEGG | "Explain how psilocybin works at the 5-HT2A receptor" |
-| Target Validation | Open Targets + DisGeNET | "Is BDNF a validated target for depression?" |
-| Off-Target Risk | STRING + ChEMBL | "What other proteins might this drug affect?" |
-| Competitive Biology | All above | "How does this compare to SSRIs mechanistically?" |
+### ClinicalTrials.gov Tables (NEW)
+*   `ct_trials_raw`: Raw trial data from CT.gov API (audit trail).
+*   `ct_trial_interventions_raw`: Expanded interventions (one row per trial-intervention).
+*   `ct_trial_interventions_clean`: LLM-classified interventions (investigational/control/background).
+*   `ct_trial_assets`: Trial-level asset assignments (primary sponsor ownership).
+*   `pipeline_assets_ctgov`: Aggregated company-level pipeline assets.
+*   `company_pipeline_qc`: QC metrics per company (coverage quality).
+*   `ctgov_review_queue`: Manual review queue for ambiguous cases.
+*   `llm_audit_log`: LLM usage tracking for cost/debugging.
 
 ---
 
-## UI Design
+## ClinicalTrials.gov Pipeline
 
-- **Theme**: Dark ("Bio-Financial" aesthetic)
-- **Colors**: Obsidian `#050505`, Neon accents `#00FF94`/`#00C2FF`
-- **Typography**: JetBrains Mono for data
-- **Components**: Glass morphism cards, gradient accents
-- **CSS**: `app/styles/custom.css` (design tokens, all styling)
+### Overview
+The CT.gov pipeline fetches clinical trial data and transforms it into clean, company-level pipeline assets.
 
----
+### Pipeline Steps
+1. **Fetch Trials**: Query CT.gov API v2 by sponsor name
+2. **Expand Interventions**: One row per trial-intervention pair
+3. **LLM Classification**: Claude classifies investigational vs. control/background drugs
+4. **Assign Ownership**: Determine primary company for each asset
+5. **Aggregate**: Collapse trial-level data into company-level assets
+6. **Map to Internal IDs**: Link to Open Targets/ChEMBL entities
+7. **QC Metrics**: Track coverage quality per company
 
-## Key Files Reference
-
-| File | Purpose |
-|------|---------|
-| `app/main.py` | Main Streamlit app |
-| `app/styles/custom.css` | All CSS styling |
-| `core/scoring.py` | Score calculations |
-| `core/drug_name_utils.py` | `normalize_drug_name()` for API queries |
-| `ingestion/*.py` | Data ingestion scripts |
-
----
-
-## Notes
-
-- Drug names in DB contain dosage info (preserved for display)
-- Normalization happens at query time via `drug_name_utils.normalize_drug_name()`
-- App is for **informational purposes only** - not medical advice
-- Respect API rate limits and terms of service
-
----
-
-## Science Tab Roadmap (2025-11-25)
-
-### Phase 1: Mechanism & Binding (Immediate)
-1.  **Enrich Drugs**: Run `ingestion/chembl_binding.py` to link drugs to ChEMBL IDs and fetch binding affinities (Ki, IC50).
-2.  **Fetch Targets**: Use ChEMBL IDs to identify protein targets (UniProt IDs).
-3.  **Visualize**: Use `stmol` and `py3Dmol` to render 3D protein structures (PDB) in the Science tab.
-
-### Phase 2: Validation & Context
-1.  **Open Targets**: Fetch target-disease association scores.
-2.  **PubMed**: Display publication counts for Drug+Disease pairs.
-
+### Key Files
+*   `backend/etl/clinicaltrials.py`: CT.gov API v2 client
+*   `backend/etl/ctgov_pipeline.py`: Full pipeline orchestrator
+*   `scripts/run_ctgov_pipeline.py`: CLI runner script
+*   `core/schema_ctgov.sql`: Database schema for CT.gov tables

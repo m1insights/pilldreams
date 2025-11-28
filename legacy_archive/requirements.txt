@@ -1,8 +1,0 @@
-google-generativeai
-structlog
-python-dotenv
-ddgs
-feedparser
-supabase
-requests
-streamlit-agraph

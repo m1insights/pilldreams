@@ -121,3 +121,39 @@ CREATE TABLE target_biology_metrics (
 );
 
 CREATE INDEX idx_target_biology_ot_id ON target_biology_metrics(ot_target_id);
+
+-- Company Intelligence Layer
+CREATE TABLE companies (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  ticker TEXT UNIQUE,
+  market_cap BIGINT,
+  sector TEXT,
+  industry TEXT,
+  description TEXT,
+  logo_url TEXT,
+  website TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_companies_ticker ON companies(ticker);
+CREATE INDEX idx_companies_name ON companies(name);
+
+CREATE TABLE company_assets (
+  id SERIAL PRIMARY KEY,
+  company_id INT REFERENCES companies(id) ON DELETE CASCADE,
+  drug_id INT REFERENCES drugs(id) ON DELETE SET NULL, -- Link to Gold Set
+  pipeline_asset_id INT REFERENCES pipeline_assets(id) ON DELETE SET NULL, -- Link to Pipeline
+  asset_name TEXT, -- Fallback if not mapped
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_company_assets_company ON company_assets(company_id);
+
+-- User Watchlist
+CREATE TABLE user_watchlist (
+  id SERIAL PRIMARY KEY,
+  company_id INT REFERENCES companies(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(company_id)
+);

@@ -1,0 +1,13 @@
+name,chembl_id,primary_target_symbol,target_family,mechanism,drug_type,approval_year,first_indication,fda_approved
+VORINOSTAT,CHEMBL98,HDAC1,HDAC,Pan-HDAC inhibitor,Small molecule,2006,Cutaneous T-cell lymphoma,TRUE
+ROMIDEPSIN,CHEMBL1213492,HDAC1,HDAC,Class I HDAC inhibitor,Small molecule,2009,Cutaneous T-cell lymphoma,TRUE
+BELINOSTAT,CHEMBL408513,HDAC1,HDAC,Pan-HDAC inhibitor,Small molecule,2014,Peripheral T-cell lymphoma,TRUE
+PANOBINOSTAT,CHEMBL1241348,HDAC1,HDAC,Pan-HDAC inhibitor,Small molecule,2015,Multiple myeloma,TRUE
+TUCIDINOSTAT,CHEMBL3621988,HDAC1,HDAC,Class I HDAC inhibitor,Small molecule,2015,Peripheral T-cell lymphoma,TRUE
+AZACITIDINE,CHEMBL1489,DNMT1,DNMT,DNMT inhibitor (hypomethylating),Small molecule,2004,Myelodysplastic syndromes,TRUE
+DECITABINE,CHEMBL1201129,DNMT1,DNMT,DNMT inhibitor (hypomethylating),Small molecule,2006,Myelodysplastic syndromes,TRUE
+TAZEMETOSTAT,CHEMBL3414621,EZH2,HMT,EZH2 inhibitor,Small molecule,2020,Epithelioid sarcoma,TRUE
+IVOSIDENIB,CHEMBL4297185,IDH1,IDH,IDH1 inhibitor,Small molecule,2018,Acute myeloid leukemia,TRUE
+ENASIDENIB,CHEMBL3989908,IDH2,IDH,IDH2 inhibitor,Small molecule,2017,Acute myeloid leukemia,TRUE
+OLUTASIDENIB,CHEMBL4297610,IDH1,IDH,IDH1 inhibitor,Small molecule,2022,Acute myeloid leukemia,TRUE
+VORASIDENIB,CHEMBL4279047,IDH1,IDH,Dual IDH1/2 inhibitor (brain-penetrant),Small molecule,2024,Low-grade glioma,TRUE

@@ -128,7 +128,7 @@ def fetch_disease_targets_scores(efo_id: str) -> Dict[str, float]:
 def fetch_target_details(target_id: str) -> Dict:
     """
     Fetch target UniProt/Ensembl IDs.
-    Returns {id, approvedSymbol, proteinAnnotations, ...}.
+    Returns {id, approvedSymbol, ...}.
     """
     query = """
     query TargetDetails($targetId: String!) {
@@ -140,3 +140,105 @@ def fetch_target_details(target_id: str) -> Dict:
     """
     result = run_ot_query(query, {"targetId": target_id})
     return result["data"]["target"]
+
+def search_target_by_symbol(symbol: str) -> Dict:
+    """
+    Search for a target by symbol using GraphQL.
+    Returns {id, approvedSymbol, approvedName, ...} or None.
+    """
+    query = """
+    query Search($queryString: String!) {
+      search(queryString: $queryString, entityNames: ["target"], page: {size: 1, index: 0}) {
+        hits {
+          object {
+            ... on Target {
+              id
+              approvedSymbol
+              approvedName
+            }
+          }
+        }
+      }
+    }
+    """
+    result = run_ot_query(query, {"queryString": symbol})
+    hits = result["data"]["search"]["hits"]
+    
+    if hits:
+        # Check for exact symbol match if possible
+        hit = hits[0]["object"]
+        if hit["approvedSymbol"].upper() == symbol.upper():
+            return hit
+    return None
+
+def fetch_known_drugs_for_target(target_id: str) -> List[Dict]:
+    """
+    Fetch all known drugs for a target.
+    Returns list of {drug, mechanismOfAction, phase, ...}.
+    """
+    query = """
+    query KnownDrugs($targetId: String!, $cursor: String) {
+      target(ensemblId: $targetId) {
+        knownDrugs(size: 100, cursor: $cursor) {
+          cursor
+          rows {
+            drug {
+              id
+              name
+              maximumClinicalTrialPhase
+              drugType
+            }
+            mechanismOfAction
+            phase
+            disease {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+    """
+    
+    all_rows = []
+    cursor = None
+    
+    while True:
+        result = run_ot_query(query, {"targetId": target_id, "cursor": cursor})
+        data = result["data"]["target"]["knownDrugs"]
+        all_rows.extend(data["rows"])
+        cursor = data.get("cursor")
+        if not cursor:
+            break
+    
+    return all_rows
+
+def fetch_tractability(target_id: str) -> List[Dict]:
+    """
+    Fetch tractability data for a target via GraphQL.
+    Returns list of {label, modality, value}.
+
+    Modalities: SM (small molecule), AB (antibody), PR (PROTAC), OC (other clinical)
+    Labels for SM include: "Approved Drug", "Structure with Ligand", "High-Quality Ligand",
+                           "Druggable Family", etc.
+    """
+    query = """
+    query TargetTractability($targetId: String!) {
+      target(ensemblId: $targetId) {
+        tractability {
+          label
+          modality
+          value
+        }
+      }
+    }
+    """
+    try:
+        result = run_ot_query(query, {"targetId": target_id})
+        if result.get("data", {}).get("target"):
+            return result["data"]["target"].get("tractability", [])
+        return []
+    except Exception as e:
+        print(f"Error fetching tractability for {target_id}: {e}")
+        return []
+
