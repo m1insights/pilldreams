@@ -551,10 +551,286 @@ async def get_stats():
         fam = t["family"]
         families[fam] = families.get(fam, 0) + 1
 
+    # Get editing asset count (if table exists)
+    editing_count = 0
+    try:
+        editing_count = len(supabase.table("epi_editing_assets").select("id").execute().data)
+    except:
+        pass
+
     return {
         "total_targets": target_count,
         "total_drugs": drug_count,
         "approved_drugs": approved_drugs,
         "total_indications": indication_count,
-        "target_families": families
+        "target_families": families,
+        "total_editing_assets": editing_count
     }
+
+
+# ============ Editing Assets Pydantic Models ============
+
+class EditingAssetSummary(BaseModel):
+    id: str
+    name: str
+    sponsor: Optional[str] = None
+    delivery_type: Optional[str] = None
+    dbd_type: Optional[str] = None
+    effector_type: Optional[str] = None
+    effector_domains: Optional[List[str]] = None
+    target_gene_symbol: Optional[str] = None
+    primary_indication: Optional[str] = None
+    phase: int = 0
+    status: str = "unknown"
+    total_editing_score: Optional[float] = None
+    target_bio_score: Optional[float] = None
+    modality_score: Optional[float] = None
+    durability_score: Optional[float] = None
+
+
+class EditingAssetDetail(BaseModel):
+    id: str
+    name: str
+    sponsor: Optional[str] = None
+    modality: str = "epigenetic_editor"
+    delivery_type: Optional[str] = None
+    dbd_type: Optional[str] = None
+    effector_type: Optional[str] = None
+    effector_domains: Optional[List[str]] = None
+    target_gene_symbol: Optional[str] = None
+    target_locus_description: Optional[str] = None
+    primary_indication: Optional[str] = None
+    phase: int = 0
+    status: str = "unknown"
+    mechanism_summary: Optional[str] = None
+    description: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+class EditingTargetGeneSummary(BaseModel):
+    id: str
+    symbol: str
+    full_name: Optional[str] = None
+    gene_category: Optional[str] = None
+    is_classic_epi_target: bool = False
+    editor_ready_status: str = "unknown"
+    editing_program_count: int = 0
+
+
+# ============ Editing Assets Endpoints ============
+
+@router.get("/editing-assets", response_model=List[EditingAssetSummary])
+async def list_editing_assets(
+    sponsor: Optional[str] = None,
+    dbd_type: Optional[str] = None,
+    effector_type: Optional[str] = None,
+    status: Optional[str] = None,
+    min_phase: Optional[int] = None
+):
+    """List all epigenetic editing assets with optional filtering."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_editing_assets").select("*")
+
+        if sponsor:
+            query = query.eq("sponsor", sponsor)
+        if dbd_type:
+            query = query.eq("dbd_type", dbd_type)
+        if effector_type:
+            query = query.eq("effector_type", effector_type)
+        if status:
+            query = query.eq("status", status)
+        if min_phase is not None:
+            query = query.gte("phase", min_phase)
+
+        assets = query.execute().data
+
+        result = []
+        for asset in assets:
+            # Get scores
+            scores = supabase.table("epi_editing_scores")\
+                .select("*")\
+                .eq("editing_asset_id", asset["id"]).execute().data
+
+            total_score = None
+            bio_score = None
+            modality_score = None
+            durability_score = None
+
+            if scores:
+                s = scores[0]
+                total_score = s.get("total_editing_score")
+                bio_score = s.get("target_bio_score")
+                modality_score = s.get("editing_modality_score")
+                durability_score = s.get("durability_score")
+
+            result.append(EditingAssetSummary(
+                id=asset["id"],
+                name=asset["name"],
+                sponsor=asset.get("sponsor"),
+                delivery_type=asset.get("delivery_type"),
+                dbd_type=asset.get("dbd_type"),
+                effector_type=asset.get("effector_type"),
+                effector_domains=asset.get("effector_domains"),
+                target_gene_symbol=asset.get("target_gene_symbol"),
+                primary_indication=asset.get("primary_indication"),
+                phase=asset.get("phase", 0),
+                status=asset.get("status", "unknown"),
+                total_editing_score=round(total_score, 1) if total_score else None,
+                target_bio_score=round(bio_score, 1) if bio_score else None,
+                modality_score=round(modality_score, 1) if modality_score else None,
+                durability_score=round(durability_score, 1) if durability_score else None
+            ))
+
+        # Sort by total_editing_score descending
+        result.sort(key=lambda x: x.total_editing_score or 0, reverse=True)
+        return result
+
+    except Exception as e:
+        # Table may not exist yet
+        raise HTTPException(status_code=500, detail=f"Error fetching editing assets: {str(e)}")
+
+
+@router.get("/editing-assets/{asset_id}")
+async def get_editing_asset(asset_id: str):
+    """Get detailed editing asset information with scores."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        # Get asset
+        asset_result = supabase.table("epi_editing_assets")\
+            .select("*")\
+            .eq("id", asset_id)\
+            .single().execute()
+
+        if not asset_result.data:
+            raise HTTPException(status_code=404, detail="Editing asset not found")
+
+        asset = asset_result.data
+
+        # Get scores
+        scores = supabase.table("epi_editing_scores")\
+            .select("*")\
+            .eq("editing_asset_id", asset_id).execute().data
+
+        # Get linked target genes
+        target_links = supabase.table("epi_editing_asset_targets")\
+            .select("*, epi_editing_target_genes(*)")\
+            .eq("editing_asset_id", asset_id).execute().data
+
+        return {
+            "asset": EditingAssetDetail(
+                id=asset["id"],
+                name=asset["name"],
+                sponsor=asset.get("sponsor"),
+                modality=asset.get("modality", "epigenetic_editor"),
+                delivery_type=asset.get("delivery_type"),
+                dbd_type=asset.get("dbd_type"),
+                effector_type=asset.get("effector_type"),
+                effector_domains=asset.get("effector_domains"),
+                target_gene_symbol=asset.get("target_gene_symbol"),
+                target_locus_description=asset.get("target_locus_description"),
+                primary_indication=asset.get("primary_indication"),
+                phase=asset.get("phase", 0),
+                status=asset.get("status", "unknown"),
+                mechanism_summary=asset.get("mechanism_summary"),
+                description=asset.get("description"),
+                source_url=asset.get("source_url")
+            ),
+            "scores": scores[0] if scores else None,
+            "target_genes": target_links
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching editing asset: {str(e)}")
+
+
+@router.get("/editing-targets", response_model=List[EditingTargetGeneSummary])
+async def list_editing_targets(
+    category: Optional[str] = None,
+    editor_ready_only: bool = False
+):
+    """List all editing target genes with optional filtering."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_editing_target_genes").select("*")
+
+        if category:
+            query = query.eq("gene_category", category)
+        if editor_ready_only:
+            query = query.neq("editor_ready_status", "unknown")
+
+        genes = query.execute().data
+
+        result = []
+        for gene in genes:
+            # Count editing programs targeting this gene
+            program_count = len(supabase.table("epi_editing_asset_targets")\
+                .select("editing_asset_id")\
+                .eq("target_gene_id", gene["id"]).execute().data)
+
+            result.append(EditingTargetGeneSummary(
+                id=gene["id"],
+                symbol=gene["symbol"],
+                full_name=gene.get("full_name"),
+                gene_category=gene.get("gene_category"),
+                is_classic_epi_target=gene.get("is_classic_epi_target", False),
+                editor_ready_status=gene.get("editor_ready_status", "unknown"),
+                editing_program_count=program_count
+            ))
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching editing targets: {str(e)}")
+
+
+@router.get("/editing-targets/{symbol}")
+async def get_editing_target(symbol: str):
+    """Get editing target gene details with editing programs."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        # Get target gene
+        gene_result = supabase.table("epi_editing_target_genes")\
+            .select("*")\
+            .eq("symbol", symbol)\
+            .single().execute()
+
+        if not gene_result.data:
+            raise HTTPException(status_code=404, detail="Editing target gene not found")
+
+        gene = gene_result.data
+
+        # Get editing programs
+        programs = supabase.table("epi_editing_asset_targets")\
+            .select("*, epi_editing_assets(*)")\
+            .eq("target_gene_id", gene["id"]).execute().data
+
+        # Get classic epi target link if exists
+        epi_target = None
+        if gene.get("epi_target_id"):
+            epi_target_result = supabase.table("epi_targets")\
+                .select("*")\
+                .eq("id", gene["epi_target_id"]).execute()
+            if epi_target_result.data:
+                epi_target = epi_target_result.data[0]
+
+        return {
+            "target_gene": gene,
+            "editing_programs": programs,
+            "epi_target": epi_target
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching editing target: {str(e)}")

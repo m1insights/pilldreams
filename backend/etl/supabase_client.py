@@ -115,6 +115,69 @@ def insert_chembl_metrics(data: dict):
     if not supabase: return
     supabase.table("chembl_metrics").insert(data).execute()
 
+# ============================================================
+# Epigenetic Editing Asset Functions
+# ============================================================
+
+def upsert_editing_asset(data: dict) -> str:
+    """Insert or update epi_editing_asset, return id."""
+    if not supabase: return None
+    # Match on name (should be unique program name)
+    existing = supabase.table("epi_editing_assets").select("id").eq("name", data["name"]).execute()
+    if existing.data:
+        supabase.table("epi_editing_assets").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_editing_assets").insert(data).execute()
+        return result.data[0]["id"]
+
+def upsert_editing_target_gene(data: dict) -> str:
+    """Insert or update epi_editing_target_genes, return id."""
+    if not supabase: return None
+    existing = supabase.table("epi_editing_target_genes").select("id").eq("symbol", data["symbol"]).execute()
+    if existing.data:
+        supabase.table("epi_editing_target_genes").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_editing_target_genes").insert(data).execute()
+        return result.data[0]["id"]
+
+def insert_editing_asset_target(data: dict):
+    """Link editing asset to target gene."""
+    if not supabase: return
+    existing = supabase.table("epi_editing_asset_targets").select("id")\
+        .eq("editing_asset_id", data["editing_asset_id"])\
+        .eq("target_gene_id", data["target_gene_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_editing_asset_targets").insert(data).execute()
+
+def upsert_editing_scores(data: dict):
+    """Insert or update epi_editing_scores."""
+    if not supabase: return
+    existing = supabase.table("epi_editing_scores").select("id")\
+        .eq("editing_asset_id", data["editing_asset_id"]).execute()
+    if existing.data:
+        supabase.table("epi_editing_scores").update(data).eq("id", existing.data[0]["id"]).execute()
+    else:
+        supabase.table("epi_editing_scores").insert(data).execute()
+
+def get_editing_target_gene_by_symbol(symbol: str):
+    """Get editing target gene by symbol."""
+    if not supabase: return None
+    result = supabase.table("epi_editing_target_genes").select("*").eq("symbol", symbol).execute()
+    return result.data[0] if result.data else None
+
+def get_all_editing_assets():
+    """Get all editing assets."""
+    if not supabase: return []
+    return supabase.table("epi_editing_assets").select("*").execute().data
+
+def get_epi_target_by_symbol(symbol: str):
+    """Get epi target by symbol."""
+    if not supabase: return None
+    result = supabase.table("epi_targets").select("*").eq("symbol", symbol).execute()
+    return result.data[0] if result.data else None
+
 def get_all_drug_indications():
     if not supabase: return []
     # Join with drugs to get drug name if needed, but IDs are enough

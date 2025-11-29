@@ -73,6 +73,78 @@ function PhaseBadge({ phase }: { phase: number | null }) {
   )
 }
 
+// Comparison Panel Component
+function ComparisonPanel({
+  drugs,
+  onRemove,
+  onClear
+}: {
+  drugs: DrugSummary[];
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}) {
+  if (drugs.length === 0) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-pd-card border-t border-pd-border shadow-2xl z-50">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-pd-text-primary">
+            Comparing {drugs.length} Drug{drugs.length > 1 ? 's' : ''}
+          </h3>
+          <button
+            onClick={onClear}
+            className="text-sm text-pd-text-muted hover:text-pd-accent"
+          >
+            Clear All
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {drugs.map((drug) => (
+            <div key={drug.id} className="bg-pd-secondary rounded-lg p-4 relative">
+              <button
+                onClick={() => onRemove(drug.id)}
+                className="absolute top-2 right-2 text-pd-text-muted hover:text-red-400"
+              >
+                ×
+              </button>
+              <Link href={`/drug/${drug.id}`} className="block">
+                <h4 className="font-medium text-pd-accent hover:underline mb-1">{drug.name}</h4>
+                <div className="flex items-center gap-2 mb-3">
+                  <PhaseBadge phase={drug.max_phase} />
+                  {drug.fda_approved && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-pd-score-high/20 text-pd-score-high">
+                      Approved
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-pd-text-muted">Bio</span>
+                  <span className="text-blue-400 font-medium">{drug.bio_score?.toFixed(0) ?? "-"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-pd-text-muted">Chem</span>
+                  <span className="text-purple-400 font-medium">{drug.chem_score?.toFixed(0) ?? "-"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-pd-text-muted">Tract</span>
+                  <span className="text-green-400 font-medium">{drug.tractability_score?.toFixed(0) ?? "-"}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-pd-border">
+                  <span className="text-pd-text-primary font-medium">Total</span>
+                  <span className="text-pd-accent font-bold text-lg">{drug.total_score?.toFixed(0) ?? "-"}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DrugLandscapePage() {
   const [drugs, setDrugs] = useState<DrugSummary[]>([])
   const [allDrugs, setAllDrugs] = useState<DrugSummary[]>([])
@@ -80,6 +152,24 @@ export default function DrugLandscapePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedPhase, setSelectedPhase] = useState("all")
+  const [compareMode, setCompareMode] = useState(false)
+  const [selectedDrugs, setSelectedDrugs] = useState<Set<string>>(new Set())
+
+  // Toggle drug selection for comparison
+  const toggleDrugSelection = (drugId: string) => {
+    setSelectedDrugs(prev => {
+      const next = new Set(prev)
+      if (next.has(drugId)) {
+        next.delete(drugId)
+      } else if (next.size < 4) { // Max 4 drugs for comparison
+        next.add(drugId)
+      }
+      return next
+    })
+  }
+
+  // Get selected drug objects
+  const comparedDrugs = allDrugs.filter(d => selectedDrugs.has(d.id))
 
   useEffect(() => {
     async function loadDrugs() {
@@ -142,8 +232,8 @@ export default function DrugLandscapePage() {
     return acc
   }, {} as Record<number, number>)
 
-  // Table columns
-  const columns = [
+  // Table columns - conditionally include selection column
+  const baseColumns = [
     {
       key: "name",
       label: "Drug Name",
@@ -152,6 +242,12 @@ export default function DrugLandscapePage() {
         <Link
           href={`/drug/${row.id}`}
           className="font-medium text-pd-accent hover:underline"
+          onClick={(e) => {
+            if (compareMode) {
+              e.preventDefault()
+              toggleDrugSelection(row.id)
+            }
+          }}
         >
           {value}
         </Link>
@@ -188,9 +284,41 @@ export default function DrugLandscapePage() {
     },
   ]
 
+  // Add selection column when in compare mode
+  const selectionColumn = {
+    key: "select",
+    label: "",
+    sortable: false,
+    render: (_: unknown, row: DrugSummary) => (
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleDrugSelection(row.id)
+        }}
+        className={cn(
+          "w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+          selectedDrugs.has(row.id)
+            ? "bg-pd-accent border-pd-accent text-white"
+            : "border-pd-border hover:border-pd-accent/50"
+        )}
+      >
+        {selectedDrugs.has(row.id) && (
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        )}
+      </button>
+    ),
+  }
+
+  const columns = compareMode ? [selectionColumn, ...baseColumns] : baseColumns
+
   return (
     <div className="min-h-screen bg-pd-primary">
-      <div className="container mx-auto px-4 py-8">
+      <div className={cn(
+        "container mx-auto px-4 py-8",
+        comparedDrugs.length > 0 && "pb-80"
+      )}>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-pd-text-primary mb-2">
@@ -238,47 +366,72 @@ export default function DrugLandscapePage() {
 
         {/* Filter Section */}
         <div className="pd-card p-4 mb-6">
-          <div className="flex flex-wrap gap-6">
-            {/* Status Filters */}
-            <div>
-              <div className="text-sm text-pd-text-muted mb-2">Status</div>
-              <div className="flex flex-wrap gap-2">
-                {STATUS_FILTERS.map((filter) => (
-                  <button
-                    key={filter.key}
-                    onClick={() => setSelectedStatus(filter.key)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      selectedStatus === filter.key
-                        ? "bg-pd-accent text-white"
-                        : "bg-pd-secondary border border-pd-border text-pd-text-secondary hover:border-pd-accent/50"
-                    )}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div className="flex flex-wrap gap-6">
+              {/* Status Filters */}
+              <div>
+                <div className="text-sm text-pd-text-muted mb-2">Status</div>
+                <div className="flex flex-wrap gap-2">
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setSelectedStatus(filter.key)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                        selectedStatus === filter.key
+                          ? "bg-pd-accent text-white"
+                          : "bg-pd-secondary border border-pd-border text-pd-text-secondary hover:border-pd-accent/50"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Phase Filters */}
+              <div>
+                <div className="text-sm text-pd-text-muted mb-2">Clinical Phase</div>
+                <div className="flex flex-wrap gap-2">
+                  {PHASE_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setSelectedPhase(filter.key)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                        selectedPhase === filter.key
+                          ? "bg-pd-accent text-white"
+                          : "bg-pd-secondary border border-pd-border text-pd-text-secondary hover:border-pd-accent/50"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Phase Filters */}
+            {/* Compare Toggle */}
             <div>
-              <div className="text-sm text-pd-text-muted mb-2">Clinical Phase</div>
-              <div className="flex flex-wrap gap-2">
-                {PHASE_FILTERS.map((filter) => (
-                  <button
-                    key={filter.key}
-                    onClick={() => setSelectedPhase(filter.key)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      selectedPhase === filter.key
-                        ? "bg-pd-accent text-white"
-                        : "bg-pd-secondary border border-pd-border text-pd-text-secondary hover:border-pd-accent/50"
-                    )}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                onClick={() => {
+                  setCompareMode(!compareMode)
+                  if (compareMode) {
+                    setSelectedDrugs(new Set())
+                  }
+                }}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                  compareMode
+                    ? "bg-pd-accent text-white"
+                    : "bg-pd-secondary border border-pd-border text-pd-text-secondary hover:border-pd-accent/50"
+                )}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {compareMode ? `Comparing (${selectedDrugs.size}/4)` : "Compare"}
+              </button>
             </div>
           </div>
         </div>
@@ -297,16 +450,38 @@ export default function DrugLandscapePage() {
             <div className="text-pd-text-muted">No drugs found matching filters</div>
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={drugs}
-            sortable={true}
-            defaultSort={{ key: "total_score", direction: "desc" }}
-            onRowClick={(row) => (window.location.href = `/drug/${row.id}`)}
-            emptyMessage="No drugs found"
-          />
+          <>
+            {compareMode && (
+              <div className="mb-4 px-4 py-3 bg-pd-accent/10 border border-pd-accent/30 rounded-lg">
+                <p className="text-sm text-pd-accent">
+                  Click on drugs to select them for comparison (max 4). Selected drugs will appear in the comparison panel below.
+                </p>
+              </div>
+            )}
+            <DataTable
+              columns={columns}
+              data={drugs}
+              sortable={true}
+              defaultSort={{ key: "total_score", direction: "desc" }}
+              onRowClick={compareMode ? (row) => toggleDrugSelection(row.id) : (row) => (window.location.href = `/drug/${row.id}`)}
+              emptyMessage="No drugs found"
+            />
+          </>
         )}
       </div>
+
+      {/* Comparison Panel */}
+      <ComparisonPanel
+        drugs={comparedDrugs}
+        onRemove={(id) => {
+          setSelectedDrugs(prev => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+        }}
+        onClear={() => setSelectedDrugs(new Set())}
+      />
     </div>
   )
 }

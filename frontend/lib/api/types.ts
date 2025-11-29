@@ -195,6 +195,81 @@ export interface PlatformStats {
   target_families: Record<string, number>
 }
 
+// ============ Epigenetic Editing Types ============
+
+export interface EditingAssetSummary {
+  id: string  // UUID
+  name: string
+  sponsor: string | null
+  delivery_type: string | null
+  dbd_type: string | null
+  effector_type: string | null
+  effector_domains: string[] | null
+  target_gene_symbol: string | null
+  primary_indication: string | null
+  phase: number
+  status: string
+  total_editing_score: number | null
+  target_bio_score: number | null
+  modality_score: number | null
+  durability_score: number | null
+}
+
+export interface EditingAssetDetail {
+  id: string
+  name: string
+  sponsor: string | null
+  modality: string
+  delivery_type: string | null
+  dbd_type: string | null
+  effector_type: string | null
+  effector_domains: string[] | null
+  target_gene_symbol: string | null
+  target_locus_description: string | null
+  primary_indication: string | null
+  phase: number
+  status: string
+  mechanism_summary: string | null
+  description: string | null
+  source_url: string | null
+}
+
+export interface EditingScores {
+  id: string
+  editing_asset_id: string
+  target_bio_score: number | null
+  editing_modality_score: number | null
+  durability_score: number | null
+  total_editing_score: number | null
+  score_rationale: string | null
+}
+
+export interface EditingTargetGeneSummary {
+  id: string
+  symbol: string
+  full_name: string | null
+  gene_category: string | null
+  is_classic_epi_target: boolean
+  editor_ready_status: string
+  editing_program_count: number
+}
+
+export interface EditingTargetGeneDetail {
+  id: string
+  symbol: string
+  full_name: string | null
+  ensembl_id: string | null
+  uniprot_id: string | null
+  gene_category: string | null
+  is_classic_epi_target: boolean
+  epi_target_id: string | null
+  editor_ready_status: string
+  editor_notes: string | null
+  lof_tolerance: string | null
+  primary_disease_areas: string[] | null
+  open_targets_score: number | null
+}
+
 // API Response wrappers
 export interface ApiResponse<T> {
   data: T

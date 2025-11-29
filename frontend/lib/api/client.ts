@@ -15,6 +15,8 @@ import type {
   ScoreBreakdown,
   IndicationSummary,
   PlatformStats,
+  EditingAssetSummary,
+  EditingTargetGeneSummary,
 } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -138,6 +140,50 @@ export const statsApi = {
   },
 }
 
+// Editing Assets API (matches /epi/editing-assets endpoints)
+export const editingAssetsApi = {
+  list: async (params?: {
+    sponsor?: string
+    dbd_type?: string
+    effector_type?: string
+    status?: string
+    min_phase?: number
+  }): Promise<EditingAssetSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.sponsor) searchParams.set("sponsor", params.sponsor)
+    if (params?.dbd_type) searchParams.set("dbd_type", params.dbd_type)
+    if (params?.effector_type) searchParams.set("effector_type", params.effector_type)
+    if (params?.status) searchParams.set("status", params.status)
+    if (params?.min_phase !== undefined) searchParams.set("min_phase", String(params.min_phase))
+
+    const query = searchParams.toString()
+    return fetchApi<EditingAssetSummary[]>(`/epi/editing-assets${query ? `?${query}` : ""}`)
+  },
+
+  get: async (assetId: string): Promise<any> => {
+    return fetchApi<any>(`/epi/editing-assets/${assetId}`)
+  },
+}
+
+// Editing Target Genes API
+export const editingTargetsApi = {
+  list: async (params?: {
+    category?: string
+    editor_ready_only?: boolean
+  }): Promise<EditingTargetGeneSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.category) searchParams.set("category", params.category)
+    if (params?.editor_ready_only) searchParams.set("editor_ready_only", "true")
+
+    const query = searchParams.toString()
+    return fetchApi<EditingTargetGeneSummary[]>(`/epi/editing-targets${query ? `?${query}` : ""}`)
+  },
+
+  get: async (symbol: string): Promise<any> => {
+    return fetchApi<any>(`/epi/editing-targets/${symbol}`)
+  },
+}
+
 // Export all APIs
 export const api = {
   targets: targetsApi,
@@ -147,6 +193,8 @@ export const api = {
   signatures: signaturesApi,
   search: searchApi,
   stats: statsApi,
+  editingAssets: editingAssetsApi,
+  editingTargets: editingTargetsApi,
 }
 
 export { ApiError }

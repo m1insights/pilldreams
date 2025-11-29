@@ -34,6 +34,14 @@ export const Navbar = () => {
       name: "Drugs",
       link: "/explore/drugs",
     },
+    {
+      name: "Editing",
+      link: "/explore/editing",
+    },
+    {
+      name: "Watchlist",
+      link: "/watchlist",
+    },
   ];
 
   const ref = useRef<HTMLDivElement>(null);

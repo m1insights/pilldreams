@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { targetsApi } from "@/lib/api"
-import { ScoreBadge, DataTable } from "@/components/data"
+import { ScoreBadge, DataTable, WatchButton } from "@/components/data"
 import { cn } from "@/lib/utils"
 
 interface TargetData {
@@ -42,6 +42,24 @@ interface TargetData {
 }
 
 type Tab = "overview" | "drugs" | "signatures"
+
+// External link component
+function ExternalLink({ href, label, icon }: { href: string; label: string; icon: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-pd-secondary border border-pd-border text-pd-accent hover:bg-pd-accent/10 transition-colors"
+    >
+      <span>{icon}</span>
+      <span>{label}</span>
+      <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      </svg>
+    </a>
+  )
+}
 
 export default function TargetPage() {
   const params = useParams()
@@ -170,14 +188,62 @@ export default function TargetPage() {
                 {target.full_name || "Epigenetic Target"}
               </p>
             </div>
-            <div className="flex gap-2">
-              <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm bg-pd-card border border-pd-border text-pd-text-secondary">
-                {target.family}
-              </span>
-              <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm bg-pd-card border border-pd-border text-pd-text-muted">
-                {target.target_class}
-              </span>
+            <div className="flex items-center gap-4">
+              <WatchButton id={String(target.id)} type="target" name={target.symbol} />
+              <div className="flex gap-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm bg-pd-card border border-pd-border text-pd-text-secondary">
+                  {target.family}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm bg-pd-card border border-pd-border text-pd-text-muted">
+                  {target.target_class}
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* External Resources */}
+        <div className="pd-card p-4 mb-6">
+          <h3 className="text-sm font-medium text-pd-text-muted mb-3">External Resources</h3>
+          <div className="flex flex-wrap gap-2">
+            {target.uniprot_id && (
+              <ExternalLink
+                href={`https://www.uniprot.org/uniprotkb/${target.uniprot_id}`}
+                label="UniProt"
+                icon="🧬"
+              />
+            )}
+            {target.ot_target_id && (
+              <ExternalLink
+                href={`https://platform.opentargets.org/target/${target.ot_target_id}`}
+                label="Open Targets"
+                icon="🎯"
+              />
+            )}
+            {target.ensembl_id && (
+              <>
+                <ExternalLink
+                  href={`https://ensembl.org/Homo_sapiens/Gene/Summary?g=${target.ensembl_id}`}
+                  label="Ensembl"
+                  icon="🧪"
+                />
+                <ExternalLink
+                  href={`https://alphafold.ebi.ac.uk/entry/${target.uniprot_id || target.ensembl_id}`}
+                  label="AlphaFold"
+                  icon="🔬"
+                />
+              </>
+            )}
+            <ExternalLink
+              href={`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(target.symbol)}`}
+              label="PubMed"
+              icon="📚"
+            />
+            <ExternalLink
+              href={`https://www.genecards.org/cgi-bin/carddisp.pl?gene=${target.symbol}`}
+              label="GeneCards"
+              icon="🗂️"
+            />
           </div>
         </div>
 
