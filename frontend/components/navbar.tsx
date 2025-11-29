@@ -28,11 +28,11 @@ export const Navbar = () => {
     },
     {
       name: "Targets",
-      link: "/#search",
+      link: "/explore/targets",
     },
     {
       name: "Drugs",
-      link: "/#search",
+      link: "/explore/drugs",
     },
   ];
 

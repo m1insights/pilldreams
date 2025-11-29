@@ -1,47 +1,52 @@
-# Cryptgen - Crypto Dashboard Template
+# Pilldreams - Epigenetics Oncology Intelligence Platform
 
-A modern, responsive cryptocurrency dashboard template built with Next.js and Aceternity UI components. This template provides a sleek interface for tracking crypto assets, market trends, and portfolio management.
+A specialized intelligence platform for evaluating experimental assets targeting epigenetic mechanisms in cancer. Built with Next.js and Aceternity UI components.
 
 ## Features
 
-- 🎨 Modern UI with Aceternity components
+- 🧬 Epigenetic target landscape (HDAC, BET, DNMT, HMT, etc.)
+- 📊 Weighted scoring system (BioScore + ChemScore + TractabilityScore)
+- 💊 Pipeline asset tracking with clinical trial data
+- 🏢 Company-level intelligence and watchlist
+- 📈 Interactive data tables with sorting and filtering
+- 🎨 Modern UI with steel/silver gradient design system
 - 📱 Fully responsive design
-- 🌙 Dark/Light mode support
-- 📊 Real-time crypto price tracking
-- 💼 Portfolio management interface
-- 📈 Interactive charts and graphs
-- 🔒 Authentication system
 - ⚡ Fast page loads with Next.js
 
 ## Tech Stack
 
-- [Next.js](https://nextjs.org/) - React framework
+- [Next.js 14](https://nextjs.org/) - React framework
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [Aceternity UI](https://ui.aceternity.com/) - UI components
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 - [Framer Motion](https://www.framer.com/motion/) - Animations
+- [FastAPI](https://fastapi.tiangolo.com/) - Backend API
+- [Supabase](https://supabase.com/) - Database
 
 ## Getting Started
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/cryptgen.git
-cd cryptgen
-```
-
-2. Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Run the development server:
+2. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-++ deploy
+## Scoring System
+
+Assets are scored 0-100 based on three weighted components:
+
+- **BioScore (50%)**: Biological rationale from Open Targets
+- **ChemScore (30%)**: Chemistry quality from ChEMBL
+- **TractabilityScore (20%)**: Target druggability assessment
+
+```
+TotalScore = 0.5 × Bio + 0.3 × Chem + 0.2 × Tract
+```

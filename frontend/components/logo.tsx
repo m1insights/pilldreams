@@ -23,7 +23,7 @@ export const Logo = () => {
     >
       <LogoIcon />
 
-      <span className="font-medium text-white">CryptGen</span>
+      <span className="font-medium text-white">Phase4</span>
     </Link>
   );
 };
