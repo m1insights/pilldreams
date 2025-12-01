@@ -138,11 +138,11 @@ const MobileCard = ({ plan }: { plan: Plan }) => {
         </div>
 
         <div className="space-y-2 mb-4">
-          {plan.features.map((feature, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              {feature.included ? (
-                <IconCheck className="h-4 w-4 text-neutral-400" />
-              ) : (
+        {plan.features.map((feature, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            {feature.included ? (
+              <IconCheck className="h-4 w-4 text-neutral-400" />
+            ) : (
                 <IconX className="h-4 w-4 text-neutral-600" />
               )}
               <span
@@ -170,9 +170,9 @@ const MobileCard = ({ plan }: { plan: Plan }) => {
         </Button>
 
         {plan.subText && (
-          <p className="text-xs text-neutral-500 text-center mt-2">
+          <div className="text-xs text-neutral-500 text-center mt-2">
             {plan.subText}
-          </p>
+          </div>
         )}
       </div>
     </div>
@@ -291,10 +291,10 @@ export function Pricing() {
   return (
     <div
       id="pricing"
-      className="relative isolate w-full overflow-hidden px-4 py-16 md:py-40 pt-10 md:pt-60 lg:px-4"
+      className="relative isolate w-full overflow-hidden px-4 py-16 md:py-40 pt-10 md:pt-60 lg:px-4 min-h-[900px] md:min-h-[1100px]"
     >
       {!isMobile && (
-        <div className="pt-32 md:pt-48 mt-[600px]">
+        <div className="absolute inset-0 pointer-events-none">
           <BackgroundShape />
         </div>
       )}
@@ -346,13 +346,13 @@ export function Pricing() {
 
 function BackgroundShape() {
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const size = isMobile ? 600 : 1400;
-  const innerSize = isMobile ? 400 : 1000;
+  const size = isMobile ? 600 : 1100;
+  const innerSize = isMobile ? 400 : 820;
 
   return (
     <div className="absolute inset-0 overflow-hidden">
       <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(255,255,255,0.1)]"
+        className="absolute left-1/2 top-[55%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(255,255,255,0.1)]"
         style={{
           width: size,
           height: size,
@@ -379,7 +379,7 @@ function BackgroundShape() {
         />
       </div>
       <div
-        className="absolute bg-black z-2 left-1/2 top-1/2 
+        className="absolute bg-black z-2 left-1/2 top-[55%] 
           -translate-x-1/2 -translate-y-1/2 rounded-full 
           border border-[rgba(255,255,255,0.1)]
           shadow-[0_0_200px_80px_rgba(255,255,255,0.1)]"

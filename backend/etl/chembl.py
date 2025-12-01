@@ -69,8 +69,13 @@ def fetch_chembl_activity(chembl_molecule_id: str, target_chembl_id: Optional[st
         # Check if Primary or Off-Target
         # We need the target_chembl_id of the activity
         act_target_id = act.get("target_chembl_id")
-        
-        if target_chembl_id and act_target_id == target_chembl_id:
+
+        if target_chembl_id is None:
+            # No specific target provided - use ALL activities for "best potency"
+            # This gives us the drug's overall best potency across all targets
+            primary_p_values.append(p_val)
+            n_primary += 1
+        elif act_target_id == target_chembl_id:
             primary_p_values.append(p_val)
             n_primary += 1
         else:

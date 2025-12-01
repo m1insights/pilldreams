@@ -11,3 +11,6 @@ IVOSIDENIB,CHEMBL4297185,IDH1,IDH,IDH1 inhibitor,Small molecule,2018,Acute myelo
 ENASIDENIB,CHEMBL3989908,IDH2,IDH,IDH2 inhibitor,Small molecule,2017,Acute myeloid leukemia,TRUE
 OLUTASIDENIB,CHEMBL4297610,IDH1,IDH,IDH1 inhibitor,Small molecule,2022,Acute myeloid leukemia,TRUE
 VORASIDENIB,CHEMBL4279047,IDH1,IDH,Dual IDH1/2 inhibitor (brain-penetrant),Small molecule,2024,Low-grade glioma,TRUE
+PELABRESIB,CHEMBL4650292,BRD4,BET,BET inhibitor (BRD2/3/4),Small molecule,,Myelofibrosis,FALSE
+REVUMENIB,CHEMBL4802478,MEN1,Menin,Menin-MLL interaction inhibitor,Small molecule,2024,Acute leukemia with KMT2A rearrangement,TRUE
+IADADEMSTAT,CHEMBL4076877,KDM1A,KDM,LSD1/KDM1A inhibitor,Small molecule,,Acute myeloid leukemia,FALSE

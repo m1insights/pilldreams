@@ -5,6 +5,8 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { drugsApi } from "@/lib/api"
 import { ScoreBadge, WatchButton } from "@/components/data"
+import { PotencyChart } from "@/components/data/potency-chart"
+import type { TargetActivity } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
 interface DrugDetailData {
@@ -14,6 +16,7 @@ interface DrugDetailData {
     chembl_id: string | null
     drug_type: string | null
     fda_approved: boolean
+    max_phase: number | null  // Clinical phase from ChEMBL (1-4)
     first_approval_date: string | null
     source: string | null
   }
@@ -121,6 +124,7 @@ function PhaseBadge({ phase }: { phase: number | null }) {
 export default function DrugDetailPage() {
   const params = useParams()
   const [data, setData] = useState<DrugDetailData | null>(null)
+  const [targetActivities, setTargetActivities] = useState<TargetActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -128,8 +132,12 @@ export default function DrugDetailPage() {
     async function load() {
       try {
         setLoading(true)
-        const res = await drugsApi.get(String(params.id))
-        setData(res)
+        const [drugRes, activitiesRes] = await Promise.all([
+          drugsApi.get(String(params.id)),
+          drugsApi.getTargetActivities(String(params.id)).catch(() => [])
+        ])
+        setData(drugRes)
+        setTargetActivities(activitiesRes)
       } catch {
         setError("Failed to load drug details")
       } finally {
@@ -160,7 +168,7 @@ export default function DrugDetailPage() {
     )
   }
 
-  const { drug, targets, scores, chemistry, indications } = data
+  const { drug, targets, scores, chemistry } = data
 
   // Find best score
   const bestScore = scores.reduce((best, s) => {
@@ -168,11 +176,6 @@ export default function DrugDetailPage() {
     if (!best || s.total_score > best.total_score!) return s
     return best
   }, null as typeof scores[0] | null)
-
-  // Get max phase from indications
-  const maxPhase = indications.reduce((max, ind) => {
-    return ind.max_phase && ind.max_phase > (max || 0) ? ind.max_phase : max
-  }, null as number | null)
 
   return (
     <div className="min-h-screen bg-pd-primary">
@@ -196,7 +199,7 @@ export default function DrugDetailPage() {
                   FDA Approved
                 </span>
               )}
-              {maxPhase && <PhaseBadge phase={maxPhase} />}
+              {drug.max_phase && <PhaseBadge phase={drug.max_phase} />}
             </div>
             <p className="text-pd-text-secondary">{drug.drug_type || "Small molecule"}</p>
             {drug.chembl_id && (
@@ -307,14 +310,6 @@ export default function DrugDetailPage() {
                   <span className="text-pd-text-secondary">Median Potency</span>
                   <span className="font-mono text-pd-text-primary">{chemistry.p_act_median?.toFixed(2) ?? "-"}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-pd-border">
-                  <span className="text-pd-text-secondary">Selectivity (ΔpAct)</span>
-                  <span className="font-mono text-pd-text-primary">{chemistry.delta_p?.toFixed(2) ?? "-"}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-pd-border">
-                  <span className="text-pd-text-secondary">Primary Activities</span>
-                  <span className="font-mono text-pd-text-primary">{chemistry.n_activities_primary ?? "-"}</span>
-                </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-pd-text-secondary">Total Activities</span>
                   <span className="font-mono text-pd-text-primary">{chemistry.n_activities_total ?? "-"}</span>
@@ -388,6 +383,24 @@ export default function DrugDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Per-Target Potency Visualization */}
+        {targetActivities.length > 0 && (
+          <div className="pd-card p-6 mb-8">
+            <h3 className="text-lg font-semibold text-pd-text-primary mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Potency by Target
+              <span className="text-pd-text-muted font-normal ml-1">({targetActivities.length} targets)</span>
+            </h3>
+            <p className="text-sm text-pd-text-muted mb-4">
+              Activity data from ChEMBL showing binding affinity (pXC50) across all tested targets.
+              Higher pXC50 = higher potency. The top target is typically the primary therapeutic target.
+            </p>
+            <PotencyChart activities={targetActivities} />
+          </div>
+        )}
 
         {/* Indications & Scores Table */}
         <div className="pd-card p-6">

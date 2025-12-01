@@ -1,0 +1,26 @@
+epi_drug_name,combo_label,partner_class,partner_drug_name,indication_name,max_phase,nct_id,source,notes
+VORINOSTAT,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,non-small cell lung carcinoma,2,NCT02638090,ClinicalTrials,HDAC inhibitor + anti-PD-1 combination in NSCLC
+VORINOSTAT,epi+IO,PD-1_inhibitor,NIVOLUMAB,renal cell carcinoma,1,NCT02619253,ClinicalTrials,HDAC inhibitor + anti-PD-1 combination
+ENTINOSTAT,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,breast cancer,2,NCT02909452,ClinicalTrials,Class I HDAC inhibitor + pembrolizumab in TNBC
+ENTINOSTAT,epi+IO,PD-L1_inhibitor,ATEZOLIZUMAB,breast cancer,1,NCT02708680,ClinicalTrials,HDAC inhibitor + anti-PD-L1
+MOCETINOSTAT,epi+IO,PD-L1_inhibitor,DURVALUMAB,non-small cell lung carcinoma,2,NCT02805660,ClinicalTrials,HDAC inhibitor + durvalumab
+ROMIDEPSIN,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,Cutaneous T-cell lymphoma,2,NCT03278782,ClinicalTrials,HDAC inhibitor in CTCL
+AZACITIDINE,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,Acute myeloid leukemia,2,NCT02892318,ClinicalTrials,DNA methylation + checkpoint inhibition
+AZACITIDINE,epi+IO,PD-L1_inhibitor,AVELUMAB,Acute myeloid leukemia,2,NCT02953561,ClinicalTrials,Hypomethylating agent + anti-PD-L1
+DECITABINE,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,Myelodysplastic syndromes,2,NCT03094637,ClinicalTrials,Hypomethylating agent + checkpoint inhibitor
+TAZEMETOSTAT,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,diffuse large B-cell lymphoma,1,NCT03854474,ClinicalTrials,EZH2 inhibitor + anti-PD-1
+PELABRESIB,epi+IO,JAK_inhibitor,RUXOLITINIB,Myelofibrosis,3,NCT04603495,ClinicalTrials,BET inhibitor + JAK inhibitor in MF (MANIFEST-2)
+MOLIBRESIB,epi+IO,PD-1_inhibitor,PEMBROLIZUMAB,cancer,1,NCT02419417,ClinicalTrials,BET inhibitor + checkpoint combination
+JQ1,epi+IO,PD-1_inhibitor,,cancer,0,,Review,BET inhibitor preclinical IO combination
+BIRABRESIB,epi+IO,PD-1_inhibitor,,cancer,0,,Review,BET inhibitor preclinical IO studies
+ENTINOSTAT,epi+KRAS,KRAS_G12C_inhibitor,SOTORASIB,non-small cell lung carcinoma,0,,Review,HDAC + KRAS G12C inhibitor preclinical rationale
+VORINOSTAT,epi+KRAS,KRAS_G12C_inhibitor,ADAGRASIB,non-small cell lung carcinoma,0,,Review,HDAC + KRAS combination potential
+AZACITIDINE,epi+Venetoclax,BCL2_inhibitor,VENETOCLAX,Acute myeloid leukemia,4,,Review,Standard of care in AML
+DECITABINE,epi+Venetoclax,BCL2_inhibitor,VENETOCLAX,Acute myeloid leukemia,4,,Review,Alternative HMA + venetoclax regimen
+VORINOSTAT,epi+radiation,radiation,,Low-grade glioma,1,NCT00268385,ClinicalTrials,HDAC inhibitor as radiosensitizer
+PANOBINOSTAT,epi+radiation,radiation,,Low-grade glioma,1,NCT01324635,ClinicalTrials,Pan-HDAC inhibitor + RT in brain tumors
+VORINOSTAT,epi+radiation,radiation,,non-small cell lung carcinoma,1,NCT00821951,ClinicalTrials,HDAC + RT in locally advanced NSCLC
+ENTINOSTAT,epi+radiation,radiation,,pancreatic carcinoma,1,NCT03760614,ClinicalTrials,HDAC inhibitor + stereotactic body RT
+ZIFTOMENIB,epi+IO,PD-1_inhibitor,,Acute leukemia with KMT2A rearrangement,0,,Review,Menin inhibitor IO combination rationale
+PINOMETOSTAT,epi+chemotherapy,cytarabine,CYTARABINE,Acute leukemia with KMT2A rearrangement,1,NCT03701295,ClinicalTrials,DOT1L inhibitor + chemotherapy
+BOMEDEMSTAT,epi+IO,PD-1_inhibitor,,Acute myeloid leukemia,0,,Review,LSD1 inhibitor IO combination potential

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 interface WatchButtonProps {
   id: string
-  type: "drug" | "target"
+  type: "drug" | "target" | "company"
   name: string
   variant?: "icon" | "button"
   className?: string

@@ -111,9 +111,15 @@ def insert_epi_signature_target(data: dict):
     if not existing.data:
         supabase.table("epi_signature_targets").insert(data).execute()
 
-def insert_chembl_metrics(data: dict):
+def upsert_chembl_metrics(data: dict):
+    """Insert or update chembl_metrics, matching on drug_id."""
     if not supabase: return
-    supabase.table("chembl_metrics").insert(data).execute()
+    existing = supabase.table("chembl_metrics").select("id")\
+        .eq("drug_id", data["drug_id"]).execute()
+    if existing.data:
+        supabase.table("chembl_metrics").update(data).eq("id", existing.data[0]["id"]).execute()
+    else:
+        supabase.table("chembl_metrics").insert(data).execute()
 
 # ============================================================
 # Epigenetic Editing Asset Functions
@@ -178,6 +184,75 @@ def get_epi_target_by_symbol(symbol: str):
     result = supabase.table("epi_targets").select("*").eq("symbol", symbol).execute()
     return result.data[0] if result.data else None
 
+# ============================================================
+# Company Functions
+# ============================================================
+
+def upsert_company(data: dict) -> str:
+    """Insert or update epi_company, return id."""
+    if not supabase: return None
+    # Match on name (ticker might be None for private companies)
+    existing = supabase.table("epi_companies").select("id").eq("name", data["name"]).execute()
+    if existing.data:
+        supabase.table("epi_companies").update(data).eq("id", existing.data[0]["id"]).execute()
+        return existing.data[0]["id"]
+    else:
+        result = supabase.table("epi_companies").insert(data).execute()
+        return result.data[0]["id"]
+
+def get_company_by_name(name: str):
+    """Get company by name."""
+    if not supabase: return None
+    result = supabase.table("epi_companies").select("*").eq("name", name).execute()
+    return result.data[0] if result.data else None
+
+def get_company_by_ticker(ticker: str):
+    """Get company by ticker."""
+    if not supabase: return None
+    result = supabase.table("epi_companies").select("*").eq("ticker", ticker).execute()
+    return result.data[0] if result.data else None
+
+def get_all_companies():
+    """Get all companies."""
+    if not supabase: return []
+    return supabase.table("epi_companies").select("*").execute().data
+
+def insert_drug_company(data: dict):
+    """Link drug to company."""
+    if not supabase: return
+    # Check if link exists
+    existing = supabase.table("epi_drug_companies").select("id")\
+        .eq("drug_id", data["drug_id"])\
+        .eq("company_id", data["company_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_drug_companies").insert(data).execute()
+
+def get_drug_by_name(name: str):
+    """Get drug by name (case insensitive)."""
+    if not supabase: return None
+    result = supabase.table("epi_drugs").select("*").ilike("name", name).execute()
+    return result.data[0] if result.data else None
+
+def get_company_drugs(company_id: str):
+    """Get all drugs for a company."""
+    if not supabase: return []
+    links = supabase.table("epi_drug_companies").select("*, epi_drugs(*)").eq("company_id", company_id).execute()
+    return links.data
+
+def insert_editing_asset_company(data: dict):
+    """Link editing asset to company."""
+    if not supabase: return
+    existing = supabase.table("epi_editing_asset_companies").select("id")\
+        .eq("editing_asset_id", data["editing_asset_id"])\
+        .eq("company_id", data["company_id"]).execute()
+    if not existing.data:
+        supabase.table("epi_editing_asset_companies").insert(data).execute()
+
+def get_editing_asset_by_sponsor(sponsor: str):
+    """Get editing assets by sponsor name."""
+    if not supabase: return []
+    return supabase.table("epi_editing_assets").select("*").eq("sponsor", sponsor).execute().data
+
 def get_all_drug_indications():
     if not supabase: return []
     # Join with drugs to get drug name if needed, but IDs are enough
@@ -190,4 +265,43 @@ def get_drug_targets(drug_id: str):
 def get_epi_target(target_id: str):
     if not supabase: return None
     return supabase.table("epi_targets").select("ot_target_id, symbol").eq("id", target_id).single().execute().data
+
+# ============================================================
+# Combo Functions
+# ============================================================
+
+def insert_epi_combo(data: dict) -> str:
+    """Insert epi_combo, return id."""
+    if not supabase: return None
+    # Check if combo already exists (same epi_drug + partner_class/drug + indication)
+    query = supabase.table("epi_combos").select("id").eq("epi_drug_id", data["epi_drug_id"])
+    if data.get("partner_drug_id"):
+        query = query.eq("partner_drug_id", data["partner_drug_id"])
+    if data.get("partner_class"):
+        query = query.eq("partner_class", data["partner_class"])
+    query = query.eq("indication_id", data["indication_id"])
+
+    existing = query.execute()
+    if existing.data:
+        return existing.data[0]["id"]
+
+    result = supabase.table("epi_combos").insert(data).execute()
+    return result.data[0]["id"]
+
+def get_drug_by_name_exact(name: str):
+    """Get drug by exact name."""
+    if not supabase: return None
+    result = supabase.table("epi_drugs").select("*").eq("name", name).execute()
+    return result.data[0] if result.data else None
+
+def get_indication_by_name(name: str):
+    """Get indication by name (case insensitive)."""
+    if not supabase: return None
+    result = supabase.table("epi_indications").select("*").ilike("name", name).execute()
+    return result.data[0] if result.data else None
+
+def get_all_combos():
+    """Get all combos with related data."""
+    if not supabase: return []
+    return supabase.table("epi_combos").select("*, epi_drugs!epi_combos_epi_drug_id_fkey(*), epi_indications(*)").execute().data
 

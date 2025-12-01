@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { IconMenu2, IconX } from "@tabler/icons-react";
+import { IconMenu2, IconX, IconSparkles } from "@tabler/icons-react";
 import {
   motion,
   AnimatePresence,
@@ -11,6 +11,7 @@ import Link from "next/link";
 import React, { useRef, useState } from "react";
 import { Button } from "./button";
 import { Logo } from "./logo";
+import { useChatContext } from "./chat-provider";
 
 interface NavbarProps {
   navItems: {
@@ -35,8 +36,16 @@ export const Navbar = () => {
       link: "/explore/drugs",
     },
     {
+      name: "Combos",
+      link: "/explore/combos",
+    },
+    {
       name: "Editing",
       link: "/explore/editing",
+    },
+    {
+      name: "Companies",
+      link: "/explore/companies",
     },
     {
       name: "Watchlist",
@@ -60,7 +69,11 @@ export const Navbar = () => {
   });
 
   return (
-    <motion.div ref={ref} className="w-full fixed top-2 inset-x-0 z-50">
+    <motion.div
+      ref={ref}
+      className="w-full sticky top-2 inset-x-0 z-50"
+      suppressHydrationWarning
+    >
       <DesktopNav visible={visible} navItems={navItems} />
       <MobileNav visible={visible} navItems={navItems} />
     </motion.div>
@@ -69,6 +82,7 @@ export const Navbar = () => {
 
 const DesktopNav = ({ navItems, visible }: NavbarProps) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const { openChat } = useChatContext();
 
   return (
     <motion.div
@@ -76,7 +90,7 @@ const DesktopNav = ({ navItems, visible }: NavbarProps) => {
       animate={{
         backdropFilter: "blur(16px)",
         background: visible ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.4)",
-        width: visible ? "38%" : "80%",
+        width: visible ? "48%" : "80%",
         height: visible ? "48px" : "64px",
         y: visible ? 8 : 0,
       }}
@@ -143,6 +157,13 @@ const DesktopNav = ({ navItems, visible }: NavbarProps) => {
         ))}
       </motion.div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={openChat}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600/20 to-blue-500/10 border border-blue-500/30 hover:border-blue-400/50 text-blue-400 hover:text-blue-300 transition-all text-sm whitespace-nowrap leading-none min-w-[82px]"
+        >
+          <IconSparkles className="w-4 h-4" />
+          <span>Ask AI</span>
+        </button>
         <AnimatePresence mode="popLayout" initial={false}>
           {!visible && (
             <motion.div
@@ -182,6 +203,7 @@ const DesktopNav = ({ navItems, visible }: NavbarProps) => {
 
 const MobileNav = ({ navItems, visible }: NavbarProps) => {
   const [open, setOpen] = useState(false);
+  const { openChat } = useChatContext();
   return (
     <>
       <motion.div
@@ -190,7 +212,7 @@ const MobileNav = ({ navItems, visible }: NavbarProps) => {
           background: visible ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.4)",
           width: visible ? "80%" : "90%",
           y: visible ? 0 : 8,
-          borderRadius: open ? "24px" : "full",
+          borderRadius: open ? "24px" : "999px",
           padding: "8px 16px",
         }}
         initial={{
@@ -208,14 +230,23 @@ const MobileNav = ({ navItems, visible }: NavbarProps) => {
       >
         <div className="flex flex-row justify-between items-center w-full">
           <Logo />
-          {open ? (
-            <IconX className="text-white/90" onClick={() => setOpen(!open)} />
-          ) : (
-            <IconMenu2
-              className="text-white/90"
-              onClick={() => setOpen(!open)}
-            />
-          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={openChat}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-blue-600/20 to-blue-500/10 border border-blue-500/30 text-blue-400 text-sm"
+            >
+              <IconSparkles className="w-4 h-4" />
+              <span>AI</span>
+            </button>
+            {open ? (
+              <IconX className="text-white/90" onClick={() => setOpen(!open)} />
+            ) : (
+              <IconMenu2
+                className="text-white/90"
+                onClick={() => setOpen(!open)}
+              />
+            )}
+          </div>
         </div>
 
         <AnimatePresence>

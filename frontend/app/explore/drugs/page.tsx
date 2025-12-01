@@ -73,6 +73,45 @@ function PhaseBadge({ phase }: { phase: number | null }) {
   )
 }
 
+// Emerging Research badge - shown for drugs targeting non-core epigenetic targets
+function EmergingResearchBadge({ isCoreEpigenetic, targetFamily }: { isCoreEpigenetic: boolean | null; targetFamily: string | null }) {
+  // Only show if explicitly false (non-core target)
+  if (isCoreEpigenetic !== false) return null
+
+  return (
+    <span
+      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900/30 text-amber-400 border border-amber-800"
+      title={`Target family: ${targetFamily || 'Unknown'} - emerging epigenetic research area`}
+    >
+      Emerging Research
+    </span>
+  )
+}
+
+// Modality badge - shown for biologics and oligonucleotides
+function ModalityBadge({ modality }: { modality: string | null }) {
+  if (!modality || modality === 'small_molecule') return null
+
+  const labels: Record<string, string> = {
+    'biologic': 'mAb',
+    'oligonucleotide': 'Oligo',
+  }
+
+  const colors: Record<string, string> = {
+    'biologic': 'bg-pink-900/30 text-pink-400 border-pink-800',
+    'oligonucleotide': 'bg-cyan-900/30 text-cyan-400 border-cyan-800',
+  }
+
+  return (
+    <span className={cn(
+      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border",
+      colors[modality] || "bg-pd-border text-pd-text-secondary"
+    )}>
+      {labels[modality] || modality}
+    </span>
+  )
+}
+
 // Comparison Panel Component
 function ComparisonPanel({
   drugs,
@@ -239,18 +278,24 @@ export default function DrugLandscapePage() {
       label: "Drug Name",
       sortable: true,
       render: (value: string, row: DrugSummary) => (
-        <Link
-          href={`/drug/${row.id}`}
-          className="font-medium text-pd-accent hover:underline"
-          onClick={(e) => {
-            if (compareMode) {
-              e.preventDefault()
-              toggleDrugSelection(row.id)
-            }
-          }}
-        >
-          {value}
-        </Link>
+        <div className="flex flex-col gap-1">
+          <Link
+            href={`/drug/${row.id}`}
+            className="font-medium text-pd-accent hover:underline"
+            onClick={(e) => {
+              if (compareMode) {
+                e.preventDefault()
+                toggleDrugSelection(row.id)
+              }
+            }}
+          >
+            {value}
+          </Link>
+          <div className="flex flex-wrap gap-1">
+            <EmergingResearchBadge isCoreEpigenetic={row.is_core_epigenetic} targetFamily={row.target_family} />
+            <ModalityBadge modality={row.modality} />
+          </div>
+        </div>
       ),
     },
     {

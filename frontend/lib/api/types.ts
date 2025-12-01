@@ -39,6 +39,7 @@ export interface Drug {
   chembl_id: string | null
   drug_type: string | null
   fda_approved: boolean
+  max_phase: number | null  // Clinical phase (1-4)
   first_approval_date: string | null
   source: string | null
 }
@@ -160,12 +161,16 @@ export interface DrugSummary {
   name: string
   chembl_id: string | null
   drug_type: string | null
+  modality: string | null  // 'small_molecule', 'biologic', 'oligonucleotide'
   fda_approved: boolean
   max_phase: number | null  // Clinical phase (1-4)
   total_score: number | null
   bio_score: number | null
   chem_score: number | null
   tractability_score: number | null
+  // Target classification for UI badges
+  is_core_epigenetic: boolean | null  // True = core epigenetic target, False = "Emerging Research"
+  target_family: string | null  // e.g., "BET", "HDAC", "metabolic", "other"
 }
 
 export interface ScoreBreakdown {
@@ -270,6 +275,38 @@ export interface EditingTargetGeneDetail {
   open_targets_score: number | null
 }
 
+// ============ Company Types ============
+
+export interface CompanySummary {
+  id: string
+  name: string
+  ticker: string | null
+  exchange: string | null
+  market_cap: number | null
+  epi_focus_score: number | null
+  is_pure_play_epi: boolean
+  drug_count: number
+  editing_asset_count: number
+  avg_drug_score: number | null
+}
+
+export interface CompanyDetail {
+  id: string
+  name: string
+  ticker: string | null
+  exchange: string | null
+  market_cap: number | null
+  sector: string | null
+  industry: string | null
+  description: string | null
+  website: string | null
+  headquarters: string | null
+  founded_year: number | null
+  employee_count: number | null
+  epi_focus_score: number | null
+  is_pure_play_epi: boolean
+}
+
 // API Response wrappers
 export interface ApiResponse<T> {
   data: T
@@ -281,4 +318,129 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   page_size: number
+}
+
+// ============ AI Chat Types ============
+
+export interface ChatMessage {
+  role: "user" | "assistant"
+  content: string
+}
+
+export interface ChatRequest {
+  question: string
+  entity_refs?: {
+    drug_names?: string[]
+    target_symbols?: string[]
+    indication_names?: string[]
+  }
+  conversation_history?: ChatMessage[]
+  temperature?: number
+}
+
+export interface ChatResponse {
+  answer: string
+  entities_found: {
+    drug_names: string[]
+    target_symbols: string[]
+    indication_names: string[]
+  }
+  model_used: string
+}
+
+export interface ScorecardRequest {
+  drug_id: string
+  indication_id: string
+  temperature?: number
+}
+
+export interface ScorecardResponse {
+  explanation: string
+  drug_name: string
+  indication_name: string
+  scores: {
+    bio_score: number | null
+    chem_score: number | null
+    tractability_score: number | null
+    total_score: number | null
+  } | null
+  model_used: string
+}
+
+export interface EditingAssetExplainRequest {
+  asset_id: string
+  temperature?: number
+}
+
+export interface EditingAssetExplainResponse {
+  explanation: string
+  asset_name: string
+  target_symbol: string | null
+  scores: {
+    target_bio_score: number | null
+    editing_modality_score: number | null
+    durability_score: number | null
+    total_editing_score: number | null
+  } | null
+  model_used: string
+}
+
+export interface AIEntities {
+  drugs: { id: string; name: string }[]
+  targets: { id: string; symbol: string; name: string | null; family: string | null }[]
+  indications: { id: string; name: string }[]
+  editing_assets: { id: string; name: string; sponsor: string | null }[]
+}
+
+export interface AIHealthStatus {
+  status: "ready" | "no_api_key"
+  gemini_configured: boolean
+  message: string
+}
+
+// ============ Combination Therapy Types ============
+
+export interface ComboSummary {
+  id: string  // UUID
+  combo_label: string  // 'epi+IO', 'epi+KRAS', 'epi+radiation', etc.
+  epi_drug_id: string
+  epi_drug_name: string
+  partner_class: string | null  // 'PD-1_inhibitor', 'KRAS_G12C_inhibitor', 'radiation', etc.
+  partner_drug_name: string | null  // e.g., 'PEMBROLIZUMAB', 'SOTORASIB'
+  indication_id: string
+  indication_name: string
+  max_phase: number | null  // 0=preclinical, 1-4=clinical phases
+  nct_id: string | null  // ClinicalTrials.gov identifier
+  source: string | null  // 'ClinicalTrials', 'Review', 'CompanyPR', etc.
+}
+
+export interface ComboDetail extends ComboSummary {
+  epi_drug_chembl_id: string | null
+  partner_drug_id: string | null  // If partner drug is in our DB
+  indication_efo_id: string | null
+  source_url: string | null
+  notes: string | null
+}
+
+export interface ComboLabel {
+  label: string
+  count: number
+}
+
+export interface ComboLabelsResponse {
+  labels: ComboLabel[]
+}
+
+// ============ Per-Target Activity Types ============
+
+export interface TargetActivity {
+  target_chembl_id: string
+  target_name: string
+  target_type: string | null
+  best_pact: number | null       // Best pXC50 (higher = more potent)
+  median_pact: number | null     // Median pXC50
+  best_value_nm: number | null   // Best IC50/Ki in nanomolar
+  n_activities: number           // Number of measurements
+  activity_types: string[] | null // e.g., ["IC50", "Ki"]
+  is_primary_target: boolean
 }

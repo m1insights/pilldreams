@@ -1,0 +1,11 @@
+patent_number,title,assignee,first_inventor,pub_date,category,abstract_snippet,related_target_symbols
+US12098399B2,Epigenetics-modifying DNA-targeting systems and methods for LDL reduction,Tune Therapeutics,Angelo Lombardo,2024-09-24,epi_editor,Systems and methods for reducing LDL cholesterol levels using epigenetic modifiers targeted to PCSK9,PCSK9
+US11866699B2,Programmable epigenetic modifiers for gene silencing,Omega Therapeutics,Neville Sanjana,2024-01-09,epi_editor,Programmable mRNA-based epigenetic modulators for targeted gene silencing,MYC
+WO2024015925A1,CRISPR-based epigenetic editing compositions,Chroma Medicine,Luke Gilbert,2024-01-18,epi_editor,Compositions and methods for CRISPRi-mediated epigenetic silencing with improved durability,
+US11578343B2,HDAC inhibitor combinations for immunomodulation,Mirati Therapeutics,David Hong,2023-02-14,epi_io,HDAC inhibitors in combination with checkpoint inhibitors for enhanced anti-tumor immunity,HDAC1;HDAC2;HDAC3
+EP4132547A1,DNA methylation markers for cancer diagnosis,Exact Sciences,Graham Lidgard,2023-02-15,epi_diagnostic,Panel of DNA methylation markers for early cancer detection and monitoring,DNMT1;DNMT3A
+US11649288B2,EZH2 inhibitor combinations,Epizyme/Ipsen,Robert Kania,2023-05-16,epi_therapy,EZH2 inhibitors in combination with other targeted agents for cancer treatment,EZH2
+WO2023196818A1,Methods for epigenetic reprogramming of T cells,Arsenal Biosciences,Shivaani Kummar,2023-10-12,epi_io,Epigenetic modification of T cells to prevent exhaustion and enhance persistence,TET2;DNMT3A
+US20240002839A1,BET inhibitor compositions for myelofibrosis,MorphoSys,Dirk Hoenemann,2024-01-04,epi_therapy,BET bromodomain inhibitors for treatment of myeloproliferative neoplasms,BRD4;BRD2
+EP4267142A1,NSD2 inhibitors and methods of use,Kymera Therapeutics,Nello Mainolfi,2023-11-01,epi_therapy,Small molecule inhibitors of NSD2 for treatment of cancer,NSD2
+WO2024030441A1,Epigenetic clocks and aging biomarkers,Altos Labs,Morgan Levine,2024-02-08,epi_tool,Methods for measuring biological age using DNA methylation patterns,DNMT1;DNMT3A;TET2

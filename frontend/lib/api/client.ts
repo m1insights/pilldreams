@@ -17,6 +17,19 @@ import type {
   PlatformStats,
   EditingAssetSummary,
   EditingTargetGeneSummary,
+  CompanySummary,
+  ChatRequest,
+  ChatResponse,
+  ScorecardRequest,
+  ScorecardResponse,
+  EditingAssetExplainRequest,
+  EditingAssetExplainResponse,
+  AIEntities,
+  AIHealthStatus,
+  ComboSummary,
+  ComboDetail,
+  ComboLabelsResponse,
+  TargetActivity,
 } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -90,6 +103,10 @@ export const drugsApi = {
 
   get: async (drugId: string): Promise<any> => {
     return fetchApi<any>(`/epi/drugs/${drugId}`)
+  },
+
+  getTargetActivities: async (drugId: string): Promise<TargetActivity[]> => {
+    return fetchApi<TargetActivity[]>(`/epi/drugs/${drugId}/target-activities`)
   },
 }
 
@@ -184,6 +201,96 @@ export const editingTargetsApi = {
   },
 }
 
+// Companies API (matches /epi/companies endpoints)
+export const companiesApi = {
+  list: async (params?: {
+    pure_play_only?: boolean
+    min_epi_focus?: number
+    has_ticker?: boolean
+  }): Promise<CompanySummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.pure_play_only) searchParams.set("pure_play_only", "true")
+    if (params?.min_epi_focus !== undefined) searchParams.set("min_epi_focus", String(params.min_epi_focus))
+    if (params?.has_ticker !== undefined) searchParams.set("has_ticker", String(params.has_ticker))
+
+    const query = searchParams.toString()
+    return fetchApi<CompanySummary[]>(`/epi/companies${query ? `?${query}` : ""}`)
+  },
+
+  get: async (companyId: string): Promise<any> => {
+    return fetchApi<any>(`/epi/companies/${companyId}`)
+  },
+
+  getByTicker: async (ticker: string): Promise<any> => {
+    return fetchApi<any>(`/epi/companies/ticker/${ticker}`)
+  },
+}
+
+// Combos API (matches /epi/combos endpoints)
+export const combosApi = {
+  list: async (params?: {
+    combo_label?: string
+    epi_drug_id?: string
+    indication_id?: string
+    partner_class?: string
+    min_phase?: number
+  }): Promise<ComboSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.combo_label) searchParams.set("combo_label", params.combo_label)
+    if (params?.epi_drug_id) searchParams.set("epi_drug_id", params.epi_drug_id)
+    if (params?.indication_id) searchParams.set("indication_id", params.indication_id)
+    if (params?.partner_class) searchParams.set("partner_class", params.partner_class)
+    if (params?.min_phase !== undefined) searchParams.set("min_phase", String(params.min_phase))
+
+    const query = searchParams.toString()
+    return fetchApi<ComboSummary[]>(`/epi/combos${query ? `?${query}` : ""}`)
+  },
+
+  get: async (comboId: string): Promise<{ combo: ComboDetail; epi_drug: any; partner_drug: any; indication: any }> => {
+    return fetchApi<{ combo: ComboDetail; epi_drug: any; partner_drug: any; indication: any }>(`/epi/combos/${comboId}`)
+  },
+
+  getLabels: async (): Promise<ComboLabelsResponse> => {
+    return fetchApi<ComboLabelsResponse>("/epi/combos/labels")
+  },
+
+  getByDrug: async (drugId: string): Promise<ComboSummary[]> => {
+    return fetchApi<ComboSummary[]>(`/epi/drugs/${drugId}/combos`)
+  },
+}
+
+// AI Chat API (matches /ai/* endpoints)
+export const aiApi = {
+  chat: async (request: ChatRequest): Promise<ChatResponse> => {
+    return fetchApi<ChatResponse>("/ai/chat", {
+      method: "POST",
+      body: JSON.stringify(request),
+    })
+  },
+
+  explainScorecard: async (request: ScorecardRequest): Promise<ScorecardResponse> => {
+    return fetchApi<ScorecardResponse>("/ai/explain-scorecard", {
+      method: "POST",
+      body: JSON.stringify(request),
+    })
+  },
+
+  explainEditingAsset: async (request: EditingAssetExplainRequest): Promise<EditingAssetExplainResponse> => {
+    return fetchApi<EditingAssetExplainResponse>("/ai/explain-editing-asset", {
+      method: "POST",
+      body: JSON.stringify(request),
+    })
+  },
+
+  getEntities: async (): Promise<AIEntities> => {
+    return fetchApi<AIEntities>("/ai/entities")
+  },
+
+  getHealth: async (): Promise<AIHealthStatus> => {
+    return fetchApi<AIHealthStatus>("/ai/health")
+  },
+}
+
 // Export all APIs
 export const api = {
   targets: targetsApi,
@@ -195,6 +302,9 @@ export const api = {
   stats: statsApi,
   editingAssets: editingAssetsApi,
   editingTargets: editingTargetsApi,
+  companies: companiesApi,
+  combos: combosApi,
+  ai: aiApi,
 }
 
 export { ApiError }
@@ -237,5 +347,6 @@ export async function searchEntities(query: string) {
     targets: results.filter(r => r.type === "target").map(r => ({ id: r.id, symbol: r.name, family: r.subtitle })),
     drugs: results.filter(r => r.type === "drug").map(r => ({ id: r.id, name: r.name, drug_type: r.subtitle, total_score: r.score })),
     indications: results.filter(r => r.type === "indication").map(r => ({ id: r.id, name: r.name, disease_area: r.subtitle })),
+    companies: results.filter(r => r.type === "company").map(r => ({ id: r.id, name: r.name, ticker: r.subtitle?.split(" ")[0] || null })),
   }
 }

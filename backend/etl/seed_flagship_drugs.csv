@@ -1,0 +1,20 @@
+name,chembl_id,drug_type,target_symbol,mechanism_of_action,max_phase,fda_approved,source
+GSK3326595,CHEMBL4466233,Small molecule,PRMT5,PRMT5 inhibitor,2,FALSE,Curated_Flagship
+JNJ-64619178,CHEMBL4249337,Small molecule,PRMT5,PRMT5 inhibitor,1,FALSE,Curated_Flagship
+PRT543,,Small molecule,PRMT5,PRMT5 inhibitor,1,FALSE,Curated_Flagship_NoChembl
+CPI-1205,CHEMBL4297463,Small molecule,EZH2,EZH2 inhibitor,2,FALSE,Curated_Flagship
+GSK126,CHEMBL3287735,Small molecule,EZH2,EZH2 inhibitor,1,FALSE,Curated_Flagship
+SHR2554,CHEMBL5417862,Small molecule,EZH2,EZH2 inhibitor,2,FALSE,Curated_Flagship
+PINOMETOSTAT,CHEMBL3414626,Small molecule,DOT1L,DOT1L inhibitor,1,FALSE,Curated_Flagship
+BOMEDEMSTAT,CHEMBL4297289,Small molecule,KDM1A,LSD1/KDM1A inhibitor,2,FALSE,Curated_Flagship
+SECLIDEMSTAT,CHEMBL4297641,Small molecule,KDM1A,LSD1/KDM1A inhibitor,2,FALSE,Curated_Flagship
+ZIFTOMENIB,CHEMBL5095038,Small molecule,MEN1,Menin inhibitor,3,FALSE,Curated_Flagship
+REVUMENIB,CHEMBL4650827,Small molecule,MEN1,Menin inhibitor,3,FALSE,Curated_Flagship
+JQ1,,Small molecule,BRD4,BET bromodomain inhibitor,0,FALSE,Curated_Flagship_NoChembl
+BIRABRESIB,CHEMBL3581647,Small molecule,BRD4,BET bromodomain inhibitor,1,FALSE,Curated_Flagship
+MIVEBRESIB,CHEMBL3987016,Small molecule,BRD4,BET bromodomain inhibitor,1,FALSE,Curated_Flagship
+MOLIBRESIB,CHEMBL1232461,Small molecule,BRD4,BET bromodomain inhibitor,2,FALSE,Curated_Flagship
+VALEMETOSTAT,CHEMBL4597193,Small molecule,EZH2,EZH1/EZH2 dual inhibitor,3,FALSE,Curated_Flagship
+GSK2879552,CHEMBL3786182,Small molecule,KDM1A,LSD1/KDM1A inhibitor,1,FALSE,Curated_Flagship
+PULRODEMSTAT,CHEMBL4651180,Small molecule,KDM1A,LSD1/KDM1A inhibitor,2,FALSE,Curated_Flagship
+TAZEMETOSTAT,CHEMBL3414621,Small molecule,EZH2,EZH2 inhibitor,4,TRUE,Curated_Flagship

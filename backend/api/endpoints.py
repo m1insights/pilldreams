@@ -38,12 +38,16 @@ class DrugSummary(BaseModel):
     name: str
     chembl_id: Optional[str] = None
     drug_type: Optional[str] = None
+    modality: Optional[str] = None
     fda_approved: bool = False
     max_phase: Optional[int] = None  # Clinical phase (1-4)
     total_score: Optional[float] = None
     bio_score: Optional[float] = None
     chem_score: Optional[float] = None
     tractability_score: Optional[float] = None
+    # Target classification for UI badges
+    is_core_epigenetic: Optional[bool] = None  # True = core epigenetic target
+    target_family: Optional[str] = None  # e.g., "BET", "HDAC", "metabolic"
 
 
 class DrugDetail(BaseModel):
@@ -52,6 +56,7 @@ class DrugDetail(BaseModel):
     chembl_id: Optional[str] = None
     drug_type: Optional[str] = None
     fda_approved: bool = False
+    max_phase: Optional[int] = None  # Clinical phase (1-4)
     first_approval_date: Optional[str] = None
     source: Optional[str] = None
 
@@ -256,27 +261,34 @@ async def list_drugs(
                 chem_score = best[1].get("chem_score")
                 tractability_score = best[1].get("tractability_score")
 
-        # Get max_phase from indications
-        indications = supabase.table("epi_drug_indications")\
-            .select("max_phase")\
+        # Get target classification (for UI badges)
+        is_core_epigenetic = None
+        target_family = None
+        target_links = supabase.table("epi_drug_targets")\
+            .select("target_id, epi_targets(is_core_epigenetic, family)")\
             .eq("drug_id", drug["id"]).execute().data
-        max_phase = None
-        if indications:
-            phases = [i.get("max_phase") for i in indications if i.get("max_phase")]
-            if phases:
-                max_phase = max(phases)
+
+        if target_links:
+            # Take first target's classification (most drugs have one target)
+            first_target = target_links[0].get("epi_targets")
+            if first_target:
+                is_core_epigenetic = first_target.get("is_core_epigenetic")
+                target_family = first_target.get("family")
 
         result.append(DrugSummary(
             id=drug["id"],
             name=drug["name"],
             chembl_id=drug.get("chembl_id"),
             drug_type=drug.get("drug_type"),
+            modality=drug.get("modality"),
             fda_approved=drug.get("fda_approved", False),
-            max_phase=max_phase,
+            max_phase=drug.get("max_phase"),
             total_score=round(total_score, 1) if total_score else None,
             bio_score=round(bio_score, 1) if bio_score else None,
             chem_score=round(chem_score, 1) if chem_score else None,
-            tractability_score=round(tractability_score, 1) if tractability_score else None
+            tractability_score=round(tractability_score, 1) if tractability_score else None,
+            is_core_epigenetic=is_core_epigenetic,
+            target_family=target_family
         ))
 
     return result
@@ -326,6 +338,7 @@ async def get_drug(drug_id: str):
             chembl_id=drug.get("chembl_id"),
             drug_type=drug.get("drug_type"),
             fda_approved=drug.get("fda_approved", False),
+            max_phase=drug.get("max_phase"),
             first_approval_date=drug.get("first_approval_date"),
             source=drug.get("source")
         ),
@@ -525,6 +538,25 @@ async def search_entities(q: str = Query(..., min_length=1)):
             subtitle=i.get("disease_area") or "Oncology"
         ))
 
+    # Search companies
+    try:
+        companies = supabase.table("epi_companies")\
+            .select("id, name, ticker, epi_focus_score")\
+            .or_(f"name.ilike.%{search_term}%,ticker.ilike.%{search_term}%").execute().data
+
+        for c in companies:
+            subtitle = c.get("ticker") or "Private"
+            if c.get("epi_focus_score"):
+                subtitle += f" ({c['epi_focus_score']:.0f}% Epi Focus)"
+            results.append(SearchResult(
+                type="company",
+                id=c["id"],
+                name=c["name"],
+                subtitle=subtitle
+            ))
+    except Exception:
+        pass  # Companies table may not exist
+
     return results
 
 
@@ -676,8 +708,8 @@ async def list_editing_assets(
                 effector_domains=asset.get("effector_domains"),
                 target_gene_symbol=asset.get("target_gene_symbol"),
                 primary_indication=asset.get("primary_indication"),
-                phase=asset.get("phase", 0),
-                status=asset.get("status", "unknown"),
+                phase=asset.get("phase") or 0,
+                status=asset.get("status") or "unknown",
                 total_editing_score=round(total_score, 1) if total_score else None,
                 target_bio_score=round(bio_score, 1) if bio_score else None,
                 modality_score=round(modality_score, 1) if modality_score else None,
@@ -726,7 +758,7 @@ async def get_editing_asset(asset_id: str):
                 id=asset["id"],
                 name=asset["name"],
                 sponsor=asset.get("sponsor"),
-                modality=asset.get("modality", "epigenetic_editor"),
+                modality=asset.get("modality") or "epigenetic_editor",
                 delivery_type=asset.get("delivery_type"),
                 dbd_type=asset.get("dbd_type"),
                 effector_type=asset.get("effector_type"),
@@ -734,8 +766,8 @@ async def get_editing_asset(asset_id: str):
                 target_gene_symbol=asset.get("target_gene_symbol"),
                 target_locus_description=asset.get("target_locus_description"),
                 primary_indication=asset.get("primary_indication"),
-                phase=asset.get("phase", 0),
-                status=asset.get("status", "unknown"),
+                phase=asset.get("phase") or 0,
+                status=asset.get("status") or "unknown",
                 mechanism_summary=asset.get("mechanism_summary"),
                 description=asset.get("description"),
                 source_url=asset.get("source_url")
@@ -834,3 +866,761 @@ async def get_editing_target(symbol: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching editing target: {str(e)}")
+
+
+# ============ Company Pydantic Models ============
+
+class CompanySummary(BaseModel):
+    id: str
+    name: str
+    ticker: Optional[str] = None
+    exchange: Optional[str] = None
+    market_cap: Optional[int] = None
+    epi_focus_score: Optional[float] = None
+    is_pure_play_epi: bool = False
+    drug_count: int = 0
+    editing_asset_count: int = 0
+    avg_drug_score: Optional[float] = None
+
+
+class CompanyDetail(BaseModel):
+    id: str
+    name: str
+    ticker: Optional[str] = None
+    exchange: Optional[str] = None
+    market_cap: Optional[int] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    headquarters: Optional[str] = None
+    founded_year: Optional[int] = None
+    employee_count: Optional[int] = None
+    epi_focus_score: Optional[float] = None
+    is_pure_play_epi: bool = False
+
+
+# ============ Companies Endpoints ============
+
+@router.get("/companies", response_model=List[CompanySummary])
+async def list_companies(
+    pure_play_only: bool = False,
+    min_epi_focus: Optional[float] = None,
+    has_ticker: Optional[bool] = None
+):
+    """List all companies with pipeline summaries."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_companies").select("*")
+
+        if pure_play_only:
+            query = query.eq("is_pure_play_epi", True)
+        if min_epi_focus:
+            query = query.gte("epi_focus_score", min_epi_focus)
+        if has_ticker is True:
+            query = query.neq("ticker", None)
+
+        companies = query.order("epi_focus_score", desc=True).execute().data
+
+        result = []
+        for c in companies:
+            # Count drugs
+            drug_links = supabase.table("epi_drug_companies")\
+                .select("drug_id")\
+                .eq("company_id", c["id"]).execute().data
+            drug_count = len(drug_links)
+
+            # Count editing assets
+            editing_links = supabase.table("epi_editing_asset_companies")\
+                .select("editing_asset_id")\
+                .eq("company_id", c["id"]).execute().data
+            editing_count = len(editing_links)
+
+            # Get average drug score
+            avg_score = None
+            if drug_links:
+                drug_ids = [d["drug_id"] for d in drug_links]
+                scores = supabase.table("epi_scores")\
+                    .select("total_score")\
+                    .in_("drug_id", drug_ids).execute().data
+                valid_scores = [s["total_score"] for s in scores if s.get("total_score")]
+                if valid_scores:
+                    avg_score = sum(valid_scores) / len(valid_scores)
+
+            result.append(CompanySummary(
+                id=c["id"],
+                name=c["name"],
+                ticker=c.get("ticker"),
+                exchange=c.get("exchange"),
+                market_cap=c.get("market_cap"),
+                epi_focus_score=c.get("epi_focus_score"),
+                is_pure_play_epi=c.get("is_pure_play_epi", False),
+                drug_count=drug_count,
+                editing_asset_count=editing_count,
+                avg_drug_score=round(avg_score, 1) if avg_score else None
+            ))
+
+        # Sort by total asset count descending
+        result.sort(key=lambda x: x.drug_count + x.editing_asset_count, reverse=True)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching companies: {str(e)}")
+
+
+@router.get("/companies/{company_id}")
+async def get_company(company_id: str):
+    """Get company details with full pipeline."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        # Get company
+        company_result = supabase.table("epi_companies")\
+            .select("*")\
+            .eq("id", company_id)\
+            .single().execute()
+
+        if not company_result.data:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        company = company_result.data
+
+        # Get drugs with scores
+        drug_links = supabase.table("epi_drug_companies")\
+            .select("*, epi_drugs(*)")\
+            .eq("company_id", company_id).execute().data
+
+        drugs_with_scores = []
+        for link in drug_links:
+            drug = link.get("epi_drugs")
+            if drug:
+                # Get score
+                scores = supabase.table("epi_scores")\
+                    .select("*")\
+                    .eq("drug_id", drug["id"]).execute().data
+                score = scores[0] if scores else None
+                drugs_with_scores.append({
+                    "drug": drug,
+                    "role": link.get("role"),
+                    "is_primary": link.get("is_primary"),
+                    "score": score
+                })
+
+        # Get editing assets with scores
+        editing_links = supabase.table("epi_editing_asset_companies")\
+            .select("*, epi_editing_assets(*)")\
+            .eq("company_id", company_id).execute().data
+
+        editing_with_scores = []
+        for link in editing_links:
+            asset = link.get("epi_editing_assets")
+            if asset:
+                scores = supabase.table("epi_editing_scores")\
+                    .select("*")\
+                    .eq("editing_asset_id", asset["id"]).execute().data
+                score = scores[0] if scores else None
+                editing_with_scores.append({
+                    "asset": asset,
+                    "role": link.get("role"),
+                    "is_primary": link.get("is_primary"),
+                    "score": score
+                })
+
+        return {
+            "company": CompanyDetail(
+                id=company["id"],
+                name=company["name"],
+                ticker=company.get("ticker"),
+                exchange=company.get("exchange"),
+                market_cap=company.get("market_cap"),
+                sector=company.get("sector"),
+                industry=company.get("industry"),
+                description=company.get("description"),
+                website=company.get("website"),
+                headquarters=company.get("headquarters"),
+                founded_year=company.get("founded_year"),
+                employee_count=company.get("employee_count"),
+                epi_focus_score=company.get("epi_focus_score"),
+                is_pure_play_epi=company.get("is_pure_play_epi", False)
+            ),
+            "drugs": drugs_with_scores,
+            "editing_assets": editing_with_scores
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}")
+
+
+@router.get("/companies/ticker/{ticker}")
+async def get_company_by_ticker(ticker: str):
+    """Get company by stock ticker."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        company_result = supabase.table("epi_companies")\
+            .select("*")\
+            .eq("ticker", ticker.upper())\
+            .single().execute()
+
+        if not company_result.data:
+            raise HTTPException(status_code=404, detail=f"Company with ticker {ticker} not found")
+
+        # Redirect to full company endpoint
+        return await get_company(company_result.data["id"])
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}")
+
+
+# ============ Patents Pydantic Models ============
+
+class PatentSummary(BaseModel):
+    id: str
+    patent_number: str
+    title: str
+    assignee: Optional[str] = None
+    pub_date: Optional[str] = None
+    category: Optional[str] = None
+    related_target_symbols: Optional[List[str]] = None
+
+
+class PatentDetail(BaseModel):
+    id: str
+    patent_number: str
+    title: str
+    assignee: Optional[str] = None
+    first_inventor: Optional[str] = None
+    pub_date: Optional[str] = None
+    category: Optional[str] = None
+    abstract_snippet: Optional[str] = None
+    related_target_symbols: Optional[List[str]] = None
+    source_url: Optional[str] = None
+
+
+# ============ Patents Endpoints ============
+
+@router.get("/patents", response_model=List[PatentSummary])
+async def list_patents(
+    category: Optional[str] = None,
+    assignee: Optional[str] = None,
+    target_symbol: Optional[str] = None,
+    limit: int = Query(default=50, le=200)
+):
+    """List epigenetic patents with optional filtering."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_patents").select("*")
+
+        if category:
+            query = query.eq("category", category)
+        if assignee:
+            query = query.ilike("assignee", f"%{assignee}%")
+        if target_symbol:
+            query = query.contains("related_target_symbols", [target_symbol])
+
+        patents = query.order("pub_date", desc=True).limit(limit).execute().data
+
+        return [
+            PatentSummary(
+                id=p["id"],
+                patent_number=p["patent_number"],
+                title=p["title"],
+                assignee=p.get("assignee"),
+                pub_date=str(p["pub_date"]) if p.get("pub_date") else None,
+                category=p.get("category"),
+                related_target_symbols=p.get("related_target_symbols")
+            )
+            for p in patents
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching patents: {str(e)}")
+
+
+@router.get("/patents/{patent_id}")
+async def get_patent(patent_id: str):
+    """Get patent details."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        result = supabase.table("epi_patents")\
+            .select("*")\
+            .eq("id", patent_id)\
+            .single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Patent not found")
+
+        p = result.data
+        return PatentDetail(
+            id=p["id"],
+            patent_number=p["patent_number"],
+            title=p["title"],
+            assignee=p.get("assignee"),
+            first_inventor=p.get("first_inventor"),
+            pub_date=str(p["pub_date"]) if p.get("pub_date") else None,
+            category=p.get("category"),
+            abstract_snippet=p.get("abstract_snippet"),
+            related_target_symbols=p.get("related_target_symbols"),
+            source_url=p.get("source_url")
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching patent: {str(e)}")
+
+
+# ============ News Pydantic Models ============
+
+class NewsSummary(BaseModel):
+    id: str
+    title: str
+    source: Optional[str] = None
+    pub_date: Optional[str] = None
+    category: Optional[str] = None
+    ai_summary: Optional[str] = None
+    ai_impact_flag: Optional[str] = None
+
+
+class NewsDetail(BaseModel):
+    id: str
+    title: str
+    source: Optional[str] = None
+    url: Optional[str] = None
+    pub_date: Optional[str] = None
+    category: Optional[str] = None
+    raw_text: Optional[str] = None
+    ai_summary: Optional[str] = None
+    ai_impact_flag: Optional[str] = None
+    ai_extracted_entities: Optional[dict] = None
+    related_drug_ids: Optional[List[str]] = None
+    related_target_ids: Optional[List[str]] = None
+    related_editing_asset_ids: Optional[List[str]] = None
+
+
+# ============ News Endpoints ============
+
+@router.get("/news", response_model=List[NewsSummary])
+async def list_news(
+    category: Optional[str] = None,
+    source: Optional[str] = None,
+    impact_flag: Optional[str] = None,
+    limit: int = Query(default=50, le=200)
+):
+    """List AI-analyzed news and research articles."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_news").select("*")
+
+        if category:
+            query = query.eq("category", category)
+        if source:
+            query = query.ilike("source", f"%{source}%")
+        if impact_flag:
+            query = query.eq("ai_impact_flag", impact_flag)
+
+        news = query.order("pub_date", desc=True).limit(limit).execute().data
+
+        return [
+            NewsSummary(
+                id=n["id"],
+                title=n["title"],
+                source=n.get("source"),
+                pub_date=str(n["pub_date"]) if n.get("pub_date") else None,
+                category=n.get("category"),
+                ai_summary=n.get("ai_summary"),
+                ai_impact_flag=n.get("ai_impact_flag")
+            )
+            for n in news
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching news: {str(e)}")
+
+
+@router.get("/news/{news_id}")
+async def get_news(news_id: str):
+    """Get news article details with AI analysis."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        result = supabase.table("epi_news")\
+            .select("*")\
+            .eq("id", news_id)\
+            .single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="News article not found")
+
+        n = result.data
+        return NewsDetail(
+            id=n["id"],
+            title=n["title"],
+            source=n.get("source"),
+            url=n.get("url"),
+            pub_date=str(n["pub_date"]) if n.get("pub_date") else None,
+            category=n.get("category"),
+            raw_text=n.get("raw_text"),
+            ai_summary=n.get("ai_summary"),
+            ai_impact_flag=n.get("ai_impact_flag"),
+            ai_extracted_entities=n.get("ai_extracted_entities"),
+            related_drug_ids=n.get("related_drug_ids"),
+            related_target_ids=n.get("related_target_ids"),
+            related_editing_asset_ids=n.get("related_editing_asset_ids")
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching news: {str(e)}")
+
+
+# ============ Enhanced Target Endpoint (with new annotations) ============
+
+# ============ Combos Pydantic Models ============
+
+class ComboSummary(BaseModel):
+    id: str
+    combo_label: str  # 'epi+IO', 'epi+KRAS', 'epi+radiation', etc.
+    epi_drug_id: str
+    epi_drug_name: str
+    partner_class: Optional[str] = None
+    partner_drug_name: Optional[str] = None
+    indication_id: str
+    indication_name: str
+    max_phase: Optional[int] = None
+    nct_id: Optional[str] = None
+    source: Optional[str] = None
+
+
+class ComboDetail(BaseModel):
+    id: str
+    combo_label: str
+    epi_drug_id: str
+    epi_drug_name: str
+    epi_drug_chembl_id: Optional[str] = None
+    partner_drug_id: Optional[str] = None
+    partner_class: Optional[str] = None
+    partner_drug_name: Optional[str] = None
+    indication_id: str
+    indication_name: str
+    indication_efo_id: Optional[str] = None
+    max_phase: Optional[int] = None
+    nct_id: Optional[str] = None
+    source: Optional[str] = None
+    source_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ============ Combos Endpoints ============
+
+@router.get("/combos", response_model=List[ComboSummary])
+async def list_combos(
+    combo_label: Optional[str] = None,
+    epi_drug_id: Optional[str] = None,
+    indication_id: Optional[str] = None,
+    partner_class: Optional[str] = None,
+    min_phase: Optional[int] = None
+):
+    """
+    List combination therapies involving epigenetic drugs.
+
+    Combo labels:
+    - epi+IO: Epigenetic + checkpoint inhibitor
+    - epi+KRAS: Epigenetic + KRAS inhibitor
+    - epi+radiation: Epigenetic + radiotherapy
+    - epi+Venetoclax: Epigenetic + BCL2 inhibitor
+    - epi+chemotherapy: Epigenetic + chemotherapy
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        query = supabase.table("epi_combos").select(
+            "*, epi_drugs!epi_combos_epi_drug_id_fkey(name, chembl_id), epi_indications(name, efo_id)"
+        )
+
+        if combo_label:
+            query = query.eq("combo_label", combo_label)
+        if epi_drug_id:
+            query = query.eq("epi_drug_id", epi_drug_id)
+        if indication_id:
+            query = query.eq("indication_id", indication_id)
+        if partner_class:
+            query = query.eq("partner_class", partner_class)
+        if min_phase is not None:
+            query = query.gte("max_phase", min_phase)
+
+        combos = query.order("max_phase", desc=True).execute().data
+
+        return [
+            ComboSummary(
+                id=c["id"],
+                combo_label=c["combo_label"],
+                epi_drug_id=c["epi_drug_id"],
+                epi_drug_name=c["epi_drugs"]["name"] if c.get("epi_drugs") else "Unknown",
+                partner_class=c.get("partner_class"),
+                partner_drug_name=c.get("partner_drug_name"),
+                indication_id=c["indication_id"],
+                indication_name=c["epi_indications"]["name"] if c.get("epi_indications") else "Unknown",
+                max_phase=c.get("max_phase"),
+                nct_id=c.get("nct_id"),
+                source=c.get("source")
+            )
+            for c in combos
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching combos: {str(e)}")
+
+
+@router.get("/combos/labels")
+async def get_combo_labels():
+    """Get all combo labels with counts."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        combos = supabase.table("epi_combos").select("combo_label").execute().data
+
+        label_counts = {}
+        for c in combos:
+            label = c["combo_label"]
+            label_counts[label] = label_counts.get(label, 0) + 1
+
+        return {
+            "labels": [
+                {"label": label, "count": count}
+                for label, count in sorted(label_counts.items(), key=lambda x: -x[1])
+            ]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching combo labels: {str(e)}")
+
+
+@router.get("/combos/{combo_id}")
+async def get_combo(combo_id: str):
+    """Get detailed combo information."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        combo_result = supabase.table("epi_combos")\
+            .select("*, epi_drugs!epi_combos_epi_drug_id_fkey(*), epi_indications(*)")\
+            .eq("id", combo_id)\
+            .single().execute()
+
+        if not combo_result.data:
+            raise HTTPException(status_code=404, detail="Combo not found")
+
+        c = combo_result.data
+        drug = c.get("epi_drugs", {})
+        indication = c.get("epi_indications", {})
+
+        # Get partner drug details if partner_drug_id exists
+        partner_drug = None
+        if c.get("partner_drug_id"):
+            partner_result = supabase.table("epi_drugs")\
+                .select("*")\
+                .eq("id", c["partner_drug_id"])\
+                .single().execute()
+            partner_drug = partner_result.data
+
+        return {
+            "combo": ComboDetail(
+                id=c["id"],
+                combo_label=c["combo_label"],
+                epi_drug_id=c["epi_drug_id"],
+                epi_drug_name=drug.get("name", "Unknown"),
+                epi_drug_chembl_id=drug.get("chembl_id"),
+                partner_drug_id=c.get("partner_drug_id"),
+                partner_class=c.get("partner_class"),
+                partner_drug_name=c.get("partner_drug_name"),
+                indication_id=c["indication_id"],
+                indication_name=indication.get("name", "Unknown"),
+                indication_efo_id=indication.get("efo_id"),
+                max_phase=c.get("max_phase"),
+                nct_id=c.get("nct_id"),
+                source=c.get("source"),
+                source_url=c.get("source_url"),
+                notes=c.get("notes")
+            ),
+            "epi_drug": drug,
+            "partner_drug": partner_drug,
+            "indication": indication
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching combo: {str(e)}")
+
+
+@router.get("/drugs/{drug_id}/combos", response_model=List[ComboSummary])
+async def get_drug_combos(drug_id: str):
+    """Get all combinations involving a specific epigenetic drug."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        combos = supabase.table("epi_combos")\
+            .select("*, epi_drugs!epi_combos_epi_drug_id_fkey(name), epi_indications(name)")\
+            .eq("epi_drug_id", drug_id)\
+            .order("max_phase", desc=True)\
+            .execute().data
+
+        return [
+            ComboSummary(
+                id=c["id"],
+                combo_label=c["combo_label"],
+                epi_drug_id=c["epi_drug_id"],
+                epi_drug_name=c["epi_drugs"]["name"] if c.get("epi_drugs") else "Unknown",
+                partner_class=c.get("partner_class"),
+                partner_drug_name=c.get("partner_drug_name"),
+                indication_id=c["indication_id"],
+                indication_name=c["epi_indications"]["name"] if c.get("epi_indications") else "Unknown",
+                max_phase=c.get("max_phase"),
+                nct_id=c.get("nct_id"),
+                source=c.get("source")
+            )
+            for c in combos
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching drug combos: {str(e)}")
+
+
+# ============ Per-Target Activity Endpoints ============
+
+class TargetActivitySummary(BaseModel):
+    target_chembl_id: str
+    target_name: str
+    target_type: Optional[str] = None
+    best_pact: Optional[float] = None
+    median_pact: Optional[float] = None
+    best_value_nm: Optional[float] = None
+    n_activities: int = 0
+    activity_types: Optional[List[str]] = None
+    is_primary_target: bool = False
+
+
+@router.get("/drugs/{drug_id}/target-activities", response_model=List[TargetActivitySummary])
+async def get_drug_target_activities(drug_id: str):
+    """
+    Get per-target activity breakdown for a drug.
+    Returns potency data by target, sorted from highest to lowest pXC50.
+
+    Use this for potency visualization showing selectivity across targets.
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        activities = supabase.table("chembl_target_activities")\
+            .select("*")\
+            .eq("drug_id", drug_id)\
+            .order("best_pact", desc=True)\
+            .execute().data
+
+        return [
+            TargetActivitySummary(
+                target_chembl_id=a["target_chembl_id"],
+                target_name=a["target_name"],
+                target_type=a.get("target_type"),
+                best_pact=round(a["best_pact"], 2) if a.get("best_pact") else None,
+                median_pact=round(a["median_pact"], 2) if a.get("median_pact") else None,
+                best_value_nm=round(a["best_value_nm"], 2) if a.get("best_value_nm") else None,
+                n_activities=a.get("n_activities", 0),
+                activity_types=a.get("activity_types"),
+                is_primary_target=a.get("is_primary_target", False)
+            )
+            for a in activities
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching target activities: {str(e)}")
+
+
+@router.get("/targets/{target_id}/enriched")
+async def get_target_enriched(target_id: str):
+    """Get target with IO exhaustion, resistance, and aging annotations plus related entities."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    try:
+        # Get target with new annotations
+        target_result = supabase.table("epi_targets")\
+            .select("*")\
+            .eq("id", target_id)\
+            .single().execute()
+
+        if not target_result.data:
+            raise HTTPException(status_code=404, detail="Target not found")
+
+        target = target_result.data
+
+        # Get related drugs
+        drug_links = supabase.table("epi_drug_targets")\
+            .select("*, epi_drugs(*)")\
+            .eq("target_id", target_id).execute().data
+
+        drugs = []
+        for link in drug_links:
+            drug = link.get("epi_drugs")
+            if drug:
+                # Get score
+                scores = supabase.table("epi_scores")\
+                    .select("total_score")\
+                    .eq("drug_id", drug["id"]).execute().data
+                best_score = max([s["total_score"] for s in scores if s.get("total_score")], default=None)
+                drugs.append({
+                    "id": drug["id"],
+                    "name": drug["name"],
+                    "mechanism": link.get("mechanism_of_action"),
+                    "total_score": best_score
+                })
+
+        # Get related editing assets
+        editing_assets = supabase.table("epi_editing_assets")\
+            .select("id, name, sponsor, status")\
+            .or_(f"target_gene_id.eq.{target_id},target_gene_symbol.eq.{target['symbol']}")\
+            .execute().data
+
+        # Get related patents
+        patents = supabase.table("epi_patents")\
+            .select("id, patent_number, title, category")\
+            .contains("related_target_symbols", [target["symbol"]])\
+            .execute().data
+
+        return {
+            "target": {
+                **target,
+                "io_exhaustion_axis": target.get("io_exhaustion_axis", False),
+                "epi_resistance_role": target.get("epi_resistance_role"),
+                "aging_clock_relevance": target.get("aging_clock_relevance"),
+            },
+            "drugs": drugs,
+            "editing_assets": editing_assets,
+            "patents": patents
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching enriched target: {str(e)}")

@@ -1,0 +1,109 @@
+================================================================================
+DATABASE INTEGRITY AUDIT REPORT
+================================================================================
+Generated: 2025-12-01 08:37:23
+Database: pilldreams (Supabase)
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+Total Findings: 12
+  - CRITICAL: 0
+  - WARNING:  7
+  - INFO:     5
+
+DATABASE STATISTICS
+--------------------------------------------------------------------------------
+  approval_statuses: {None: 58, 'approved': 15}
+  bio_score_avg: 34.7
+  bio_score_max: 80.9
+  bio_score_min: 0.0
+  chembl_metrics_count: 181
+  chembl_richness_avg: 0.0
+  chembl_richness_max: 0
+  combo_categories: {'unknown': 25}
+  drug_sources: {'OpenTargets': 27, 'Curated_Flagship': 16, 'Curated_Flagship_NoChembl': 2, 'Curated_Gold': 14, 'open_targets': 7}
+  epi_combos_count: 25
+  epi_drug_indications_count: 73
+  epi_drug_targets_count: 148
+  epi_drugs_count: 66
+  epi_indications_count: 35
+  epi_scores_count: 73
+  epi_signature_targets_count: 11
+  epi_signatures_count: 1
+  epi_targets_count: 79
+  targets_io_annotated: 79
+  targets_resistance_annotated: 32
+  total_score_avg: 44.1
+  total_score_max: 69.5
+  total_score_min: 18.0
+
+
+WARNING FINDINGS (7)
+================================================================================
+
+chembl_metrics
+--------------------------------------------------------------------------------
+
+  [Missing Data] 181 metrics missing 'best_potency_nm'
+    count: 181
+
+epi_combos
+--------------------------------------------------------------------------------
+
+  [Missing Data] 25 combos missing 'rationale'
+    strategies: [None, None, None, None, None, None, None, None, None, None, '... (15 more)']
+
+epi_drug_targets
+--------------------------------------------------------------------------------
+
+  [Missing Data] 1 drug-target links missing 'mechanism_of_action'
+    link_ids: ['6589cf87-9b07-42f7-b11f-5df8d1be424e']
+
+epi_drugs
+--------------------------------------------------------------------------------
+
+  [Missing Data] 2 drugs missing 'chembl_id'
+    drug_names: ['PRT543', 'JQ1']
+
+epi_targets
+--------------------------------------------------------------------------------
+
+  [Missing Data] 79 targets missing 'name'
+    symbols: ['DNMT3L', 'SUV39H2', 'EHMT2', 'NSD1', 'NSD3', 'ASXL1', 'KDM4A', 'KDM4B', 'KDM4C', 'KDM6A', '... (69 more)']
+
+  [Missing Data] 11 targets missing 'ensembl_id'
+    symbols: ['ASXL1', 'YTHDF1', 'TTR', 'KAT2A', 'MYC', 'DUX4', 'METTL7A', 'H2AFY', 'cccDNA', 'PCSK9', '... (1 more)']
+
+  [Missing Data] 79 targets missing 'uniprot_id'
+    symbols: ['DNMT3L', 'SUV39H2', 'EHMT2', 'NSD1', 'NSD3', 'ASXL1', 'KDM4A', 'KDM4B', 'KDM4C', 'KDM6A', '... (69 more)']
+
+INFO FINDINGS (5)
+================================================================================
+
+epi_combos
+--------------------------------------------------------------------------------
+
+  [Data Distribution] Combo categories: {'unknown': 25}
+
+epi_drug_indications
+--------------------------------------------------------------------------------
+
+  [Data Distribution] Approval statuses: {None: 58, 'approved': 15}
+
+epi_drugs
+--------------------------------------------------------------------------------
+
+  [Data Distribution] Drug sources: {'OpenTargets': 27, 'Curated_Flagship': 16, 'Curated_Flagship_NoChembl': 2, 'Curated_Gold': 14, 'open_targets': 7}
+
+epi_targets
+--------------------------------------------------------------------------------
+
+  [Annotation Coverage] 79/79 targets have IO exhaustion annotations
+    coverage_pct: 100.0
+
+  [Annotation Coverage] 32/79 targets have resistance role annotations
+    coverage_pct: 40.5
+
+================================================================================
+END OF REPORT
+================================================================================

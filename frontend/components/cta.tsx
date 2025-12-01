@@ -107,9 +107,9 @@ const LineGradient = ({ position }: { position: "left" | "right" }) => {
           }}
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#2EB9DF" stopOpacity="0" />
-          <stop stopColor="#2EB9DF" />
-          <stop offset="1" stopColor="#9E00FF" stopOpacity="0" />
+          <stop stopColor="#60a5fa" stopOpacity="0" />
+          <stop stopColor="#60a5fa" />
+          <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
         </motion.linearGradient>
         <linearGradient
           id={`paint0_linear_${position}`}

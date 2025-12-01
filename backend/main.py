@@ -29,5 +29,8 @@ def health_check():
     return {"status": "ok", "message": "Epigenetics Intelligence Layer is running"}
 
 from backend.api import endpoints
+from backend.api import ai_endpoints
+
 app.include_router(endpoints.router)
+app.include_router(ai_endpoints.router)
 

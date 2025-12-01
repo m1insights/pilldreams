@@ -6,7 +6,7 @@ const STORAGE_KEY = "pilldreams_watchlist"
 
 export type WatchlistItem = {
   id: string
-  type: "drug" | "target"
+  type: "drug" | "target" | "company"
   name: string
   addedAt: string
 }
@@ -57,12 +57,12 @@ export function useWatchlist() {
     })
   }, [])
 
-  const removeItem = useCallback((id: string, type: "drug" | "target") => {
+  const removeItem = useCallback((id: string, type: "drug" | "target" | "company") => {
     setItems((prev) => prev.filter((i) => !(i.id === id && i.type === type)))
   }, [])
 
   const isWatched = useCallback(
-    (id: string, type: "drug" | "target") => {
+    (id: string, type: "drug" | "target" | "company") => {
       return items.some((i) => i.id === id && i.type === type)
     },
     [items]
@@ -93,5 +93,6 @@ export function useWatchlist() {
     clearAll,
     drugCount: items.filter((i) => i.type === "drug").length,
     targetCount: items.filter((i) => i.type === "target").length,
+    companyCount: items.filter((i) => i.type === "company").length,
   }
 }

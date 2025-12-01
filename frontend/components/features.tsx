@@ -4,19 +4,19 @@ import { cn } from "@/lib/utils";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
-import DottedMap from "dotted-map";
+
 import {
-  IconBrandDiscord,
-  IconBrandFacebook,
-  IconBrandGmail,
-  IconBrandLinkedin,
-  IconBrandNotion,
-  IconBrandReddit,
-  IconBrandSlack,
-  IconBrandTwitch,
-  IconBrandTwitter,
-  IconBrandX,
-  IconBrandYoutube,
+  IconDna,
+  IconDna2,
+  IconFlask,
+  IconMicroscope,
+  IconPill,
+  IconTestPipe,
+  IconAtom,
+  IconVirus,
+  IconHeartbeat,
+  IconStethoscope,
+  IconActivity,
 } from "@tabler/icons-react";
 import { GlowingEffect } from "./ui/glowing-effect";
 
@@ -40,11 +40,11 @@ export function Features() {
         Accelerate discovery with a curated knowledge base of epigenetic targets, drugs, and signatures.
       </p>
       <div className="mt-20  grid cols-1 lg:grid-cols-5 gap-4 auto-rows-[25rem] max-w-3xl mx-auto lg:max-w-none">
-        <Card className="flex flex-col relative justify-between lg:col-span-2">
-          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/3">
+        <Card className="flex flex-col relative lg:col-span-2 overflow-hidden">
+          <div className="flex-1 flex items-center justify-center min-h-[200px] pt-12 pb-8">
             <LogoOrbit />
           </div>
-          <CardContent className="h-40 absolute bottom-0">
+          <CardContent className="relative z-10">
             <CardTitle>
               Target <br /> Discovery
             </CardTitle>
@@ -63,7 +63,7 @@ export function Features() {
             </CardDescription>
           </CardContent>
           <div className="absolute inset-0">
-            <MapView />
+            <MoleculeNetwork />
           </div>
           <h1
             className={cn(
@@ -86,7 +86,8 @@ export function Features() {
             Approved Drugs
           </h1>
           <CardSkeletonBody>
-            <div className="relative flex h-[300px] w-full flex-col items-start top-20 md:top-10 overflow-hidden rounded-lg bg-background md:shadow-xl">
+            <div className="relative flex h-[220px] md:h-[260px] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-neutral-900 via-neutral-950 to-black shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+              <div className="pointer-events-none absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_20%_20%,rgba(96,165,250,0.16),transparent_36%),radial-gradient(circle_at_80%_35%,rgba(129,140,248,0.14),transparent_32%),radial-gradient(circle_at_50%_80%,rgba(52,211,153,0.12),transparent_32%)]" />
               <IconsList />
             </div>
           </CardSkeletonBody>
@@ -228,11 +229,11 @@ const IconsList = () => {
 
   const icons = useMemo(
     () => [
-      { Icon: IconBrandYoutube, delay: 0 },
-      { Icon: IconBrandSlack, delay: 0.1 },
-      { Icon: IconBrandX, delay: 0.2 },
-      { Icon: IconBrandGmail, delay: 0.3 },
-      { Icon: IconBrandNotion, delay: 0.4 },
+      { Icon: IconDna, delay: 0 },
+      { Icon: IconFlask, delay: 0.1 },
+      { Icon: IconMicroscope, delay: 0.2 },
+      { Icon: IconPill, delay: 0.3 },
+      { Icon: IconAtom, delay: 0.4 },
     ],
     []
   );
@@ -389,7 +390,7 @@ export const Highlight = ({
   return (
     <span
       className={cn(
-        "font-bold bg-emerald-100  bg-emerald-700/[0.2] text-emerald-500 px-1 py-0.5",
+        "font-bold bg-blue-900/30 text-blue-400 px-1 py-0.5 rounded",
         className
       )}
     >
@@ -639,7 +640,8 @@ const PeopleGrid = () => {
             alt={person.alt}
             height={70}
             width={70}
-            className="rounded-lg"
+            sizes="70px"
+            className="rounded-lg h-[70px] w-[70px]"
             style={{
               filter:
                 index === activeIndex ? "brightness(1.2)" : "brightness(0.8)",
@@ -816,52 +818,53 @@ const OrbitingIcons = ({
 
 const LogoOrbit = () => {
   const orbit1Icons = [
-    <IconBrandTwitter
-      key="twitter"
+    <IconDna
+      key="dna"
       className="w-8 h-8 text-white dark:text-white"
     />,
-    <IconBrandFacebook
-      key="facebook"
+    <IconFlask
+      key="flask"
       className="w-8 h-8 text-white dark:text-white"
     />,
-    <IconBrandLinkedin
-      key="linkedin"
+    <IconMicroscope
+      key="microscope"
       className="w-8 h-8 text-white dark:text-white"
     />,
   ];
 
   const orbit2Icons = [
-    <IconBrandYoutube
-      key="youtube"
+    <IconPill
+      key="pill"
       className="w-6 h-6 text-white dark:text-white"
     />,
-    <IconBrandTwitch
-      key="twitch"
+    <IconAtom
+      key="atom"
       className="w-6 h-6 text-white dark:text-white"
     />,
-    <IconBrandReddit
-      key="reddit"
+    <IconTestPipe
+      key="testpipe"
       className="w-6 h-6 text-white dark:text-white"
     />,
-    <IconBrandDiscord
-      key="discord"
+    <IconDna2
+      key="dna2"
       className="w-6 h-6 text-white dark:text-white"
     />,
   ];
 
   return (
     <OrbitingIcons
+      className="w-[260px] h-[260px] md:w-[320px] md:h-[320px]"
       orbits={[
         {
           icons: orbit1Icons,
           rotationDirection: "clockwise",
-          radius: 80,
+          radius: 70,
           speed: 7,
         },
         {
           icons: orbit2Icons,
           rotationDirection: "anticlockwise",
-          radius: 140,
+          radius: 120,
           speed: 15,
         },
       ]}
@@ -869,74 +872,41 @@ const LogoOrbit = () => {
   );
 };
 
-const MapView = () => {
-  const svgMap = useMemo(() => {
-    const map = new DottedMap({
-      height: 40,
-      grid: "diagonal",
-    });
-
-    return map.getSVG({
-      radius: 0.15,
-      color: "#FFFFFF50",
-      shape: "circle",
-    });
-  }, []);
-
-  const flashingPoints = useMemo(() => {
-    const points = [];
-    const numPoints = 8;
-
-    for (let i = 0; i < numPoints; i++) {
-      points.push({
-        x: 15 + Math.random() * 70,
-        y: 15 + Math.random() * 70,
-        delay: (i / numPoints) * 3,
-        duration: 2 + Math.random(),
-      });
-    }
-    return points;
-  }, []);
-
+const MoleculeNetwork = () => {
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      <div className="absolute inset-0 transition-opacity duration-300">
-        <Image
-          src={`data:image/svg+xml;utf8,${encodeURIComponent(svgMap)}`}
-          className="h-full w-full object-cover absolute top-0 -right-2 -mt-14 
-            [mask-image:linear-gradient(to_bottom,transparent,white_15%,white_85%,transparent)]
-            pointer-events-none select-none opacity-50"
-          alt="Interactive world map visualization"
-          height={595}
-          width={356}
-          priority={true}
-          draggable={false}
-        />
-      </div>
+    <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+      <svg
+        viewBox="0 0 400 400"
+        className="w-full h-full [mask-image:radial-gradient(circle_at_center,white,transparent)]"
+      >
+        <motion.g
+          animate={{ rotate: 360 }}
+          transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+          style={{ transformOrigin: "200px 200px" }}
+        >
+          {/* Central Ring */}
+          <circle cx="200" cy="200" r="40" stroke="#555" strokeWidth="1" fill="none" />
+          <circle cx="200" cy="200" r="20" fill="#333" />
 
-      <div className="absolute inset-0" aria-hidden="true">
-        {flashingPoints.map((point, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 bg-white rounded-full shadow-glow"
-            style={{
-              left: `${point.x}%`,
-              top: `${point.y}%`,
-              boxShadow: "0 0 12px rgba(255,255,255,0.4)",
-            }}
-            animate={{
-              opacity: [0, 0.8, 0],
-              scale: [1, 1.4, 1],
-            }}
-            transition={{
-              duration: point.duration,
-              delay: point.delay,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
-      </div>
+          {/* Orbiting Atoms */}
+          {[0, 60, 120, 180, 240, 300].map((angle, i) => {
+            const rad = (angle * Math.PI) / 180;
+            const x = parseFloat((200 + Math.cos(rad) * 100).toFixed(3));
+            const y = parseFloat((200 + Math.sin(rad) * 100).toFixed(3));
+            const x2 = parseFloat((x + Math.cos(rad) * 40).toFixed(3));
+            const y2 = parseFloat((y + Math.sin(rad) * 40).toFixed(3));
+            return (
+              <g key={i}>
+                <line x1="200" y1="200" x2={x} y2={y} stroke="#333" strokeWidth="1" />
+                <circle cx={x} cy={y} r="8" fill="#666" />
+                {/* Outer connections */}
+                <line x1={x} y1={y} x2={x2} y2={y2} stroke="#333" strokeWidth="1" />
+                <circle cx={x2} cy={y2} r="4" fill="#444" />
+              </g>
+            );
+          })}
+        </motion.g>
+      </svg>
     </div>
   );
 };

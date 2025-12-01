@@ -41,7 +41,7 @@ export const Button = ({
       "0_16px_68px_rgba(47,_48,_55,_0.05),_0_1px_0_rgba(255,_255,_255,_0.1)_inset]"
     ),
     gradient: cn(
-      "bg-gradient-to-b from-blue-500 to-blue-700 text-white",
+      "bg-gradient-to-b from-pd-accent to-pd-accent-muted text-white",
       "shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset]"
     ),
   };

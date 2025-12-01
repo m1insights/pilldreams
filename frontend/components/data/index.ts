@@ -2,3 +2,4 @@ export { ScoreGauge, getScoreTier, getScoreGradient, getScoreTextColor } from ".
 export { ScoreBadge } from "./score-badge"
 export { DataTable } from "./data-table"
 export { WatchButton } from "./watch-button"
+export { PotencyChart, formatNanomolar, getPotencyTier } from "./potency-chart"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchTargets, fetchDrugs, searchEntities } from "@/lib/api";
+import { fetchTargets, fetchDrugs, searchEntities, companiesApi } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ export function Search() {
     const [drugs, setDrugs] = useState<any[]>([]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [indications, setIndications] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [companies, setCompanies] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
 
@@ -25,6 +27,13 @@ export function Search() {
             const d = await fetchDrugs({ approved_only: true });
             setDrugs(d.slice(0, 8));
             setIndications([]);
+            // Load top companies
+            try {
+                const c = await companiesApi.list();
+                setCompanies(c.slice(0, 6));
+            } catch {
+                setCompanies([]);
+            }
             setHasSearched(false);
         } catch (e) {
             console.error(e);
@@ -47,6 +56,7 @@ export function Search() {
             setTargets(results.targets || []);
             setDrugs(results.drugs || []);
             setIndications(results.indications || []);
+            setCompanies(results.companies || []);
             setHasSearched(true);
         } catch (e) {
             console.error("Search failed:", e);
@@ -86,7 +96,7 @@ export function Search() {
                 )}
             </div>
 
-            {hasSearched && targets.length === 0 && drugs.length === 0 && indications.length === 0 && (
+            {hasSearched && targets.length === 0 && drugs.length === 0 && indications.length === 0 && companies.length === 0 && (
                 <div className="text-center py-8 text-neutral-400">
                     No results found for &quot;{query}&quot;
                 </div>
@@ -162,6 +172,36 @@ export function Search() {
                                             <Link href={`/indication/${i.id}`} className="font-medium text-blue-400 hover:underline text-sm">
                                                 {i.name}
                                             </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {(companies.length > 0 || hasSearched) && (
+                    <Card className="bg-neutral-900 border-neutral-800">
+                        <CardHeader>
+                            <CardTitle className="text-white text-lg">
+                                {hasSearched ? `Companies (${companies.length})` : "Epigenetics Companies"}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {companies.length === 0 ? (
+                                <p className="text-neutral-500 text-sm">No companies found</p>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {companies.map((c) => (
+                                        <li key={c.id} className="flex justify-between items-center p-2 hover:bg-neutral-800 rounded">
+                                            <Link href={`/company/${c.id}`} className="font-medium text-blue-400 hover:underline">
+                                                {c.name}
+                                            </Link>
+                                            {c.ticker ? (
+                                                <span className="text-xs font-mono bg-purple-900/50 text-purple-300 px-2 py-1 rounded">{c.ticker}</span>
+                                            ) : (
+                                                <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-1 rounded">Private</span>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>

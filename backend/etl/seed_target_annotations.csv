@@ -1,0 +1,34 @@
+symbol,io_exhaustion_axis,epi_resistance_role,aging_clock_relevance,io_combo_priority,annotation_notes
+DNMT1,TRUE,primary_driver,horvath_clock,85,Key DNA methylation maintenance enzyme; hypermethylation drives T-cell exhaustion; core Horvath clock gene
+DNMT3A,TRUE,primary_driver,horvath_clock,80,De novo methyltransferase; mutations common in CHIP/clonal hematopoiesis; aging clock gene
+DNMT3B,FALSE,secondary,horvath_clock,50,De novo methyltransferase; less validated in IO context than DNMT3A
+TET1,TRUE,modulator,aging_reversal,70,5mC oxidation; demethylation pathway; potential for epigenetic rejuvenation
+TET2,TRUE,primary_driver,aging_reversal,85,Key demethylase; TET2 mutations drive clonal hematopoiesis and IO resistance
+TET3,FALSE,modulator,,40,Less characterized in cancer/IO context
+HDAC1,TRUE,primary_driver,,90,Core HDAC; HDAC inhibitors enhance IO response in multiple trials
+HDAC2,TRUE,primary_driver,,85,Core HDAC; works with HDAC1; validated IO combination target
+HDAC3,TRUE,secondary,,75,Class I HDAC; emerging IO combination data
+HDAC6,TRUE,modulator,,70,Unique cytoplasmic HDAC; regulates T-cell migration and function
+EZH2,TRUE,primary_driver,,95,PRC2 catalytic subunit; drives T-cell exhaustion; strong IO combination rationale
+EZH1,FALSE,modulator,,40,Partially redundant with EZH2; less validated
+SUZ12,FALSE,secondary,,30,PRC2 scaffold; not directly targeted
+EED,FALSE,secondary,,35,PRC2 component; allosteric inhibitors in development
+BRD4,TRUE,primary_driver,,90,Key BET protein; BET inhibitors enhance IO in preclinical and early clinical
+BRD2,TRUE,secondary,,65,BET family; contributes to inflammatory gene regulation
+BRD3,FALSE,modulator,,50,BET family; less characterized
+BRDT,FALSE,,,20,Testis-specific; not relevant for IO
+DOT1L,TRUE,secondary,,60,H3K79 methyltransferase; MLL-rearranged leukemia; some IO combination interest
+KDM1A,TRUE,primary_driver,,80,LSD1; regulates T-cell differentiation and exhaustion; active IO combination trials
+PRMT5,TRUE,primary_driver,,85,Key arginine methyltransferase; emerging IO combination data
+PRMT1,FALSE,secondary,,45,Type I PRMT; less validated than PRMT5
+MEN1,TRUE,secondary,,55,Menin inhibitors in MLL; early IO combination exploration
+IDH1,TRUE,modulator,,60,Mutant IDH produces 2-HG; affects TET enzymes and immune microenvironment
+IDH2,TRUE,modulator,,60,Similar to IDH1; ivosidenib/enasidenib approved
+SIRT1,FALSE,,longevity,30,Sirtuin; more relevant to aging/metabolism than cancer IO
+SIRT6,FALSE,,longevity,25,Sirtuin; DNA repair and aging; limited IO relevance
+PCSK9,FALSE,,,20,Cholesterol metabolism; emerging cancer interest but limited IO data
+KAT2A,FALSE,modulator,,35,HAT; less validated as IO target
+EP300,TRUE,modulator,,55,HAT/co-activator; regulates Treg function
+CREBBP,TRUE,modulator,,55,HAT/co-activator; similar to EP300; lymphoma relevance
+NSD2,FALSE,secondary,,30,H3K36 methyltransferase; MM relevance but limited IO data
+SETD2,FALSE,modulator,,25,H3K36 methyltransferase; tumor suppressor; limited therapeutic targeting

@@ -88,8 +88,8 @@ def run():
             "chem_score": chem_score
         }
         
-        supabase_client.insert_chembl_metrics(metrics_data)
-        print(f"  ✅ Saved metrics for {name} (Score: {chem_score})")
+        supabase_client.upsert_chembl_metrics(metrics_data)
+        print(f"  ✅ Saved metrics for {name} (Score: {chem_score}, pBest: {metrics.get('p_act_best'):.2f})" if metrics.get('p_act_best') else f"  ✅ Saved metrics for {name} (Score: {chem_score})")
 
 if __name__ == "__main__":
     run()

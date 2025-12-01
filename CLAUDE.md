@@ -1,7 +1,7 @@
 # pilldreams Project Context
 
 > **Project Directory**: `/Users/mananshah/Dev/pilldreams/`
-> **Last Updated**: 2025-11-28
+> **Last Updated**: 2025-11-30
 
 ---
 
@@ -60,12 +60,45 @@ We shifted from a global explorer to a privacy-focused **Watchlist** model.
 *   **Backend**: FastAPI (`backend/main.py`)
 *   **Database**: Supabase (PostgreSQL)
 *   **Frontend**: Next.js (`frontend/`)
+*   **AI Layer**: Google Gemini (`backend/ai/`)
 *   **ETL**: Python Scripts (`backend/etl/`)
     *   `open_targets.py`: Disease & Drug ingestion.
     *   `chembl.py`: Chemistry data.
     *   `companies.py`: Company data via `yfinance`.
     *   `clinicaltrials.py`: CT.gov API v2 client.
     *   `ctgov_pipeline.py`: Full CT.gov ingestion pipeline with LLM classification.
+
+---
+
+## AI Chat Layer
+
+The platform includes an AI-powered chat for exploring epigenetic oncology data.
+
+### Endpoints
+*   `POST /ai/chat` - General Q&A about drugs, targets, scores
+*   `POST /ai/explain-scorecard` - Explain drug-indication scorecards
+*   `POST /ai/explain-editing-asset` - Explain epigenetic editing programs
+*   `GET /ai/entities` - List all known entities for autocomplete
+*   `GET /ai/health` - Check AI service status
+
+### Key Files
+*   `backend/ai/client.py` - Model-agnostic AI client (Gemini)
+*   `backend/ai/context_builder.py` - Build JSON context from DB
+*   `backend/ai/prompts.py` - System prompts for grounding
+*   `backend/api/ai_endpoints.py` - FastAPI routes
+
+### Environment Variable
+```bash
+GEMINI_API_KEY=your-api-key-here  # Required for AI features
+```
+
+### Example Questions
+- "What is Vorinostat used for?"
+- "Why does Tazemetostat score 72 in follicular lymphoma?"
+- "Compare HDAC inhibitors to BET inhibitors"
+- "List all Phase 3 epigenetic drugs"
+
+See `/docs/AI_CHAT.md` for full documentation.
 
 ---
 
@@ -112,33 +145,125 @@ python -m backend.etl.06_compute_chem_and_total_score
 python -m backend.etl.07_seed_signatures
 ```
 
+### Additional ETL Scripts (Recent Additions)
+
+```bash
+# Step 20: Seed Flagship Drugs (19 high-profile drugs: PRMT5, EZH2, DOT1L, LSD1, Menin, BET inhibitors)
+python -m backend.etl.20_seed_flagship_drugs
+
+# Step 21: Expand Drugs for All Targets (via Open Targets API)
+python -m backend.etl.21_expand_drugs_all_targets
+
+# Step 22: Seed Combination Therapies (epi+IO, epi+KRAS, epi+radiation)
+# NOTE: Requires epi_combos table to exist first - run SQL in Supabase Dashboard
+python -m backend.etl.22_seed_epi_combos
+
+# Step 23: Seed Target-Level Annotations (IO exhaustion, resistance roles)
+# NOTE: Requires migration_target_annotations.sql to be run first
+python -m backend.etl.23_seed_target_annotations
+```
+
+### SQL Migrations (run in Supabase Dashboard)
+```bash
+# Create epi_combos table
+cat core/schema_combos.sql | pbcopy
+
+# Add target annotations columns
+cat core/migration_target_annotations.sql | pbcopy
+
+# Then paste in Supabase Dashboard > SQL Editor > New Query > Run
+```
+
 ### Curated Seed Files
-- `backend/etl/seed_epi_targets.csv` - 67 epigenetic targets (DNMTs, HDACs, HMTs, KDMs, BETs, TETs, SIRTs, etc.)
-- `backend/etl/seed_gold_drugs.csv` - 12 FDA-approved epigenetic oncology drugs
+- `backend/etl/seed_epi_targets.csv` - 79 epigenetic targets (DNMTs, HDACs, HMTs, KDMs, BETs, TETs, SIRTs, PRMTs, etc.)
+- `backend/etl/seed_gold_drugs.csv` - 14 FDA-approved epigenetic oncology drugs
+- `backend/etl/seed_flagship_drugs.csv` - 18 high-profile clinical-stage drugs (PRMT5, EZH2, DOT1L, LSD1, Menin, BET inhibitors)
+- `backend/etl/seed_epi_combos.csv` - 25 combination therapy strategies (epi+IO, epi+KRAS, epi+radiation, epi+Venetoclax)
+- `backend/etl/seed_target_annotations.csv` - 32 target-level annotations (IO exhaustion, resistance roles, aging clock relevance)
+
+---
+
+## ETL Pipeline Architecture
+
+### Core Pipeline Order
+Run these scripts in sequence to build the epigenetics database:
+
+```
+01_seed_epi_targets.py      → Load 79 targets from seed_epi_targets.csv
+02_build_epi_gold_drugs.py  → Load gold drugs from seed_gold_drugs.csv
+04_compute_chembl_metrics.py → ChEMBL API → potency, selectivity, richness
+04c_compute_drug_phases.py   → ChEMBL API → max_phase (clinical trial phase 0-4)
+05_compute_bio_tract_scores.py → Open Targets API → bio_score, tractability_score
+06_compute_chem_and_total_score.py → Compute chem_score, total_score
+07_seed_signatures.py        → Load DREAM complex signature
+```
+
+### Data Source Summary
+
+| Source | Data Retrieved | Used For |
+|--------|---------------|----------|
+| **ChEMBL** | pXC50 (potency), delta-p (selectivity), # experiments, max_phase | ChemScore, clinical phase |
+| **Open Targets** | Disease-target associations, tractability buckets | BioScore, TractabilityScore |
+| **Curated CSVs** | Target definitions, gold drugs, flagship drugs | Initial seeding |
+
+### Score Computation Flow
+1. **ChEMBL** (04_) → `chembl_metrics` table → raw potency/selectivity
+2. **Open Targets** (05_) → `epi_scores` table → bio_score, tractability_score
+3. **Aggregation** (06_) → `epi_scores` table → chem_score, total_score
+
+### Archived ETL Files
+Files moved to `backend/etl/_archive/` (duplicates of active scripts):
+- `15_seed_editing_assets.py` → duplicate of `10_seed_editing_assets.py`
+- `16_compute_editing_scores.py` → duplicate of `12_compute_editing_scores.py`
 
 ---
 
 ## Database Schema (Key Tables)
 
 ### Epigenetics Core Tables
-*   `epi_targets`: 67 epigenetic targets (symbol, family, class, Ensembl ID, UniProt ID)
-*   `epi_drugs`: 12 gold drugs (name, ChEMBL ID, FDA approval date, source)
+*   `epi_targets`: 79 epigenetic targets (symbol, family, class, Ensembl ID, UniProt ID, io_exhaustion_axis, epi_resistance_role, io_combo_priority, aging_clock_relevance)
+*   `epi_drugs`: 66 drugs (name, ChEMBL ID, FDA approval date, source)
 *   `epi_drug_targets`: Drug-target links with mechanism of action
-*   `epi_indications`: Oncology indications with EFO IDs
+*   `epi_indications`: 35+ oncology indications with EFO IDs
 *   `epi_drug_indications`: Drug-indication links with approval status
 *   `epi_scores`: BioScore, ChemScore, TractabilityScore, TotalScore per drug-indication
+*   `epi_combos`: Combination therapy strategies (epi+IO, epi+KRAS, epi+radiation, etc.)
 *   `epi_signatures`: Gene signatures (e.g., DREAM complex)
 *   `epi_signature_targets`: Signature-target links
 *   `chembl_metrics`: Chemistry data (potency, selectivity, richness)
 
-### Current Data (as of 2025-11-28)
-| Table | Count |
-|-------|-------|
-| `epi_targets` | 67 |
-| `epi_drugs` | 12 |
-| `epi_indications` | 7 |
-| `epi_scores` | 12 |
-| `epi_signatures` | 1 (DREAM) |
+### Current Data (as of 2025-11-30)
+| Table | Count | Notes |
+|-------|-------|-------|
+| `epi_targets` | 79 | 20 with IO exhaustion annotations |
+| `epi_drugs` | 66 | 14 FDA-approved, 18 flagship, 34 from Open Targets |
+| `epi_indications` | 35 | Oncology indications with EFO/MONDO IDs |
+| `epi_drug_indications` | 73 | Drug-indication pairs |
+| `epi_scores` | 73 | Range: 18-70, Avg: 44 |
+| `epi_combos` | 25 | 16 epi+IO, 4 radiation, 2 KRAS, 2 Venetoclax, 1 chemo |
+| `epi_signatures` | 1 | DREAM complex (11 targets) |
+| `chembl_metrics` | 181 | Potency/selectivity data |
+| `epi_drug_targets` | 148 | Drug-target links |
+
+### Score Distribution
+- **High (≥60):** 17 drugs - VORASIDENIB (69.5), GSK126 (68.0), ENTINOSTAT (67.4)
+- **Medium (40-60):** 26 drugs
+- **Low (<40):** 30 drugs (early-stage or limited data)
+
+### Combination Therapy Categories (epi_combos)
+*   **epi+IO**: Epigenetic + checkpoint inhibitor (PD-1, PD-L1, CTLA-4)
+*   **epi+KRAS**: Epigenetic + KRAS inhibitor (G12C, G12D)
+*   **epi+radiation**: Epigenetic + radiotherapy (radiosensitization)
+*   **epi+Venetoclax**: Epigenetic + BCL2 inhibitor (AML standard of care)
+*   **epi+chemotherapy**: Epigenetic + cytotoxic chemotherapy
+
+### Target-Level Annotations (20 targets annotated)
+*   **io_exhaustion_axis**: Boolean - target relevant to T-cell exhaustion/IO resistance
+*   **epi_resistance_role**: primary_driver | secondary | modulator
+*   **io_combo_priority**: 0-100 score for IO combination prioritization
+*   **aging_clock_relevance**: horvath_clock | longevity | aging_reversal
+
+Top IO Priority Targets: EZH2 (95), BRD4 (90), HDAC1 (90), TET2 (85), PRMT5 (85)
 
 ### Legacy Tables (from old schema, may be unused)
 *   `companies`: Company metadata (Ticker, Market Cap).
@@ -685,3 +810,6 @@ async def remove_from_watchlist(entity_id: str, user_id: str):
 - [ ] Add error states
 - [ ] Mobile responsiveness
 - [ ] Excel export functionality
+- any time there is a chnage to our database schema pla update the database_schema.md file in /docs/
+- DO NOT delete any drugs or information without explicit approval by the user. PCSK9 drugs for example are being studied as epigenetic modifiers.
+- any time the database schema is updated you need to document it in /Users/mananshah/Dev/pilldreams/docs/DATABASE_SCHEMA.md
