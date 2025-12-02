@@ -30,6 +30,10 @@ import type {
   ComboDetail,
   ComboLabelsResponse,
   TargetActivity,
+  PatentSummary,
+  PatentDetail,
+  NewsSummary,
+  NewsDetail,
 } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -259,6 +263,59 @@ export const combosApi = {
   },
 }
 
+// Patents API (matches /epi/patents endpoints)
+export const patentsApi = {
+  list: async (params?: {
+    category?: string
+    assignee?: string
+    target_symbol?: string
+  }): Promise<PatentSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.category) searchParams.set("category", params.category)
+    if (params?.assignee) searchParams.set("assignee", params.assignee)
+    if (params?.target_symbol) searchParams.set("target_symbol", params.target_symbol)
+
+    const query = searchParams.toString()
+    return fetchApi<PatentSummary[]>(`/epi/patents${query ? `?${query}` : ""}`)
+  },
+
+  get: async (patentId: string): Promise<PatentDetail> => {
+    return fetchApi<PatentDetail>(`/epi/patents/${patentId}`)
+  },
+
+  getCategories: async (): Promise<{ category: string; count: number }[]> => {
+    // Fetch all patents and count categories
+    const patents = await fetchApi<PatentSummary[]>("/epi/patents")
+    const categoryMap: Record<string, number> = {}
+    patents.forEach(p => {
+      const cat = p.category || "other"
+      categoryMap[cat] = (categoryMap[cat] || 0) + 1
+    })
+    return Object.entries(categoryMap).map(([category, count]) => ({ category, count }))
+  },
+}
+
+// News API (matches /epi/news endpoints)
+export const newsApi = {
+  list: async (params?: {
+    category?: string
+    source?: string
+    limit?: number
+  }): Promise<NewsSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.category) searchParams.set("category", params.category)
+    if (params?.source) searchParams.set("source", params.source)
+    if (params?.limit) searchParams.set("limit", String(params.limit))
+
+    const query = searchParams.toString()
+    return fetchApi<NewsSummary[]>(`/epi/news${query ? `?${query}` : ""}`)
+  },
+
+  get: async (newsId: string): Promise<NewsDetail> => {
+    return fetchApi<NewsDetail>(`/epi/news/${newsId}`)
+  },
+}
+
 // AI Chat API (matches /ai/* endpoints)
 export const aiApi = {
   chat: async (request: ChatRequest): Promise<ChatResponse> => {
@@ -304,6 +361,8 @@ export const api = {
   editingTargets: editingTargetsApi,
   companies: companiesApi,
   combos: combosApi,
+  patents: patentsApi,
+  news: newsApi,
   ai: aiApi,
 }
 

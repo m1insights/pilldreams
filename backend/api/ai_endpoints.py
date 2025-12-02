@@ -256,10 +256,191 @@ async def list_known_entities():
 async def ai_health():
     """Check if AI service is configured and ready."""
     import os
-    has_api_key = bool(os.getenv("GEMINI_API_KEY"))
+    has_gemini = bool(os.getenv("GEMINI_API_KEY"))
+    has_perplexity = bool(os.getenv("PERPLEXITY_API_KEY"))
 
     return {
-        "status": "ready" if has_api_key else "no_api_key",
-        "gemini_configured": has_api_key,
-        "message": "AI endpoints ready" if has_api_key else "Set GEMINI_API_KEY to enable AI features"
+        "status": "ready" if has_gemini else "no_api_key",
+        "gemini_configured": has_gemini,
+        "perplexity_configured": has_perplexity,
+        "message": "AI endpoints ready" if has_gemini else "Set GEMINI_API_KEY to enable AI features"
     }
+
+
+# =========================================================================
+# Fact-Check Endpoints (Perplexity)
+# =========================================================================
+
+class FactCheckDrugRequest(BaseModel):
+    """Request to fact-check a drug."""
+    drug_id: str
+
+
+class FactCheckTargetRequest(BaseModel):
+    """Request to fact-check a target."""
+    target_id: str
+
+
+class FactCheckResponse(BaseModel):
+    """Response from fact-check endpoint."""
+    entity_name: str
+    entity_type: str
+    our_data: dict
+    verified_data: Optional[dict] = None
+    discrepancies: list
+    has_discrepancies: bool
+    citations: Optional[list] = None
+    error: Optional[str] = None
+    checked_at: str
+
+
+@router.post("/fact-check/drug", response_model=FactCheckResponse)
+async def fact_check_drug(request: FactCheckDrugRequest):
+    """
+    Fact-check a drug record using Perplexity API.
+
+    Verifies:
+    - Current developer/owner company
+    - Clinical trial phase
+    - Approved/investigated indications
+    - Primary target
+
+    Returns discrepancies for admin review.
+    """
+    import os
+    from backend.etl.supabase_client import supabase
+
+    if not os.getenv("PERPLEXITY_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="PERPLEXITY_API_KEY not configured. Set it to enable fact-checking."
+        )
+
+    # Get drug from database
+    drug_result = supabase.table('epi_drugs').select('*').eq('id', request.drug_id).single().execute()
+
+    if not drug_result.data:
+        raise HTTPException(status_code=404, detail=f"Drug not found: {request.drug_id}")
+
+    drug = drug_result.data
+
+    # Get associated targets
+    targets = supabase.table('epi_drug_targets').select('target_id, epi_targets(symbol)').eq('drug_id', request.drug_id).execute().data
+    target_symbols = [t['epi_targets']['symbol'] for t in targets if t.get('epi_targets')]
+
+    # Get associated indications
+    indications = supabase.table('epi_drug_indications').select('indication_id, epi_indications(name)').eq('drug_id', request.drug_id).execute().data
+    indication_names = [i['epi_indications']['name'] for i in indications if i.get('epi_indications')]
+
+    # Build our data record
+    our_data = {
+        "company": drug.get("sponsor") or drug.get("source"),
+        "phase": drug.get("max_phase"),
+        "indications": indication_names,
+        "target": target_symbols[0] if target_symbols else None,
+        "chembl_id": drug.get("chembl_id")
+    }
+
+    # Call Perplexity
+    from backend.ai.fact_check import FactCheckService
+    service = FactCheckService()
+    result = await service.verify_drug(drug["name"], our_data)
+
+    # Log to fact_check_log table
+    try:
+        supabase.table('fact_check_log').insert({
+            "entity_type": "drug",
+            "entity_id": request.drug_id,
+            "entity_name": drug["name"],
+            "our_data": our_data,
+            "perplexity_response": result.get("raw_response"),
+            "perplexity_summary": result.get("verified_data", {}).get("recent_news"),
+            "discrepancies": result.get("discrepancies"),
+            "has_discrepancies": result.get("has_discrepancies", False),
+            "status": "pending" if result.get("has_discrepancies") else "confirmed"
+        }).execute()
+    except Exception as e:
+        print(f"Failed to log fact-check: {e}")
+
+    return FactCheckResponse(
+        entity_name=drug["name"],
+        entity_type="drug",
+        our_data=our_data,
+        verified_data=result.get("verified_data"),
+        discrepancies=result.get("discrepancies", []),
+        has_discrepancies=result.get("has_discrepancies", False),
+        citations=result.get("citations"),
+        error=result.get("error"),
+        checked_at=result.get("checked_at", "")
+    )
+
+
+@router.post("/fact-check/target", response_model=FactCheckResponse)
+async def fact_check_target(request: FactCheckTargetRequest):
+    """
+    Fact-check a target record using Perplexity API.
+
+    Verifies:
+    - Gene/protein name and function
+    - Target family classification
+    - Known drugs targeting this protein
+    """
+    import os
+    from backend.etl.supabase_client import supabase
+
+    if not os.getenv("PERPLEXITY_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="PERPLEXITY_API_KEY not configured. Set it to enable fact-checking."
+        )
+
+    # Get target from database
+    target_result = supabase.table('epi_targets').select('*').eq('id', request.target_id).single().execute()
+
+    if not target_result.data:
+        raise HTTPException(status_code=404, detail=f"Target not found: {request.target_id}")
+
+    target = target_result.data
+
+    # Get associated drugs
+    drugs = supabase.table('epi_drug_targets').select('drug_id, epi_drugs(name)').eq('target_id', request.target_id).execute().data
+    drug_names = [d['epi_drugs']['name'] for d in drugs if d.get('epi_drugs')]
+
+    our_data = {
+        "name": target.get("name"),
+        "family": target.get("family"),
+        "class": target.get("class"),
+        "drugs_in_development": drug_names
+    }
+
+    # Call Perplexity
+    from backend.ai.fact_check import FactCheckService
+    service = FactCheckService()
+    result = await service.verify_target(target["symbol"], our_data)
+
+    # Log to fact_check_log table
+    try:
+        supabase.table('fact_check_log').insert({
+            "entity_type": "target",
+            "entity_id": request.target_id,
+            "entity_name": target["symbol"],
+            "our_data": our_data,
+            "perplexity_response": result.get("raw_response"),
+            "discrepancies": result.get("discrepancies"),
+            "has_discrepancies": result.get("has_discrepancies", False),
+            "status": "pending" if result.get("has_discrepancies") else "confirmed"
+        }).execute()
+    except Exception as e:
+        print(f"Failed to log fact-check: {e}")
+
+    return FactCheckResponse(
+        entity_name=target["symbol"],
+        entity_type="target",
+        our_data=our_data,
+        verified_data=result.get("verified_data"),
+        discrepancies=result.get("discrepancies", []),
+        has_discrepancies=result.get("has_discrepancies", False),
+        citations=result.get("citations"),
+        error=result.get("error"),
+        checked_at=result.get("checked_at", "")
+    )

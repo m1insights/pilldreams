@@ -382,3 +382,56 @@ Combination categories:
 │ related_target_symbols  │       │ status              │
 └─────────────────────────┘       └─────────────────────┘
 ```
+
+## News & Intelligence Tables
+
+### EPI_NEWS_STAGING
+Staging table for news articles fetched from RSS feeds, pending admin review in Supabase Table Editor. Each record has:
+- A unique ID
+- **source**: Feed source identifier ("nature_drug_discovery", "pubmed", "biospace", "company_pr")
+- **source_url**: Original article URL
+- **source_id**: RSS GUID or PubMed ID for deduplication
+- **title**: Article title
+- **abstract**: Article abstract/summary from RSS (not full article due to copyright)
+- **pub_date**: Publication date
+- **authors**: Array of author names
+- **ai_summary**: AI-generated 2-3 sentence summary
+- **ai_category**: Classification ("epi_drug", "epi_editing", "epi_io", "clinical_trial", "acquisition", "regulatory", "research", "other")
+- **ai_impact_flag**: Market signal ("bullish", "bearish", "neutral", "unknown")
+- **ai_extracted_entities**: JSON with extracted drugs, targets, companies
+- **ai_confidence**: 0-1 confidence score
+- **linked_drug_ids**: Array of UUIDs linking to EPI_DRUGS
+- **linked_target_ids**: Array of UUIDs linking to EPI_TARGETS
+- **status**: Workflow status ("pending", "approved", "rejected", "actioned")
+- **admin_notes**: Admin comments
+- **admin_action_taken**: What action was taken ("published", "updated_drug_phase", "added_indication", etc.)
+- **reviewed_at**: Timestamp of review
+- **reviewed_by**: Admin identifier
+
+Admin workflow:
+1. RSS fetcher runs daily → inserts articles with status='pending'
+2. Admin opens Supabase Table Editor → filters status='pending'
+3. Admin reviews AI summary and changes status to 'approved' or 'rejected'
+4. Frontend shows only status='approved' articles
+
+### FACT_CHECK_LOG
+Audit trail for Perplexity API fact-checks on drugs/targets/companies. Each record has:
+- A unique ID
+- **entity_type**: Type being checked ("drug", "target", "company")
+- **entity_id**: UUID of the entity
+- **entity_name**: Name for display
+- **our_data**: JSON snapshot of our database record at check time
+- **perplexity_response**: Raw API response
+- **perplexity_summary**: Parsed summary text
+- **discrepancies**: JSON array of differences found (field, ours, verified, notes)
+- **has_discrepancies**: Boolean flag for quick filtering
+- **status**: Resolution status ("pending", "confirmed", "updated", "disputed")
+- **resolution_notes**: Admin notes on resolution
+- **resolved_at**: Timestamp of resolution
+- **resolved_by**: Admin identifier
+- **checked_at**: Timestamp of API call
+
+Used to:
+- Track data quality and freshness
+- Identify outdated information (acquisitions, phase changes, new approvals)
+- Maintain audit trail for regulatory compliance

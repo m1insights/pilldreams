@@ -444,3 +444,47 @@ export interface TargetActivity {
   activity_types: string[] | null // e.g., ["IC50", "Ki"]
   is_primary_target: boolean
 }
+
+// ============ Patent Types ============
+
+export interface PatentSummary {
+  id: string
+  patent_number: string
+  title: string
+  assignee: string | null
+  pub_date: string | null
+  category: string | null  // 'epi_editor', 'epi_therapy', 'epi_diagnostic', 'epi_io', 'epi_tool'
+  related_target_symbols: string[] | null
+}
+
+export interface PatentDetail extends PatentSummary {
+  first_inventor: string | null
+  abstract_snippet: string | null
+  source_url: string | null
+}
+
+// ============ News Types ============
+
+export interface NewsSummary {
+  id: string
+  title: string
+  source: string | null
+  source_url: string | null
+  pub_date: string | null
+  ai_summary: string | null
+  ai_category: string | null  // 'epi_drug', 'epi_editing', 'epi_io', 'clinical_trial', 'acquisition', etc.
+  ai_impact_flag: string | null  // 'bullish', 'bearish', 'neutral', 'unknown'
+  ai_extracted_entities: {
+    drugs?: string[]
+    targets?: string[]
+    companies?: string[]
+    key_finding?: string
+  } | null
+}
+
+export interface NewsDetail extends NewsSummary {
+  abstract: string | null
+  authors: string[] | null
+  linked_drug_ids: string[] | null
+  linked_target_ids: string[] | null
+}

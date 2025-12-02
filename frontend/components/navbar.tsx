@@ -44,12 +44,16 @@ export const Navbar = () => {
       link: "/explore/editing",
     },
     {
-      name: "Companies",
-      link: "/explore/companies",
+      name: "Patents",
+      link: "/explore/patents",
     },
     {
-      name: "Watchlist",
-      link: "/watchlist",
+      name: "Intel",
+      link: "/explore/news",
+    },
+    {
+      name: "Companies",
+      link: "/explore/companies",
     },
   ];
 
