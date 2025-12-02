@@ -3,7 +3,8 @@ ETL 30: Fetch News from RSS Feeds + AI Processing
 
 Fetches articles from:
 - Nature Drug Discovery RSS
-- PubMed epigenetics alerts
+- Nature Cancer RSS
+- PubMed epigenetics saved search RSS
 - BioSpace Oncology news
 
 AI processes each article to:
@@ -13,10 +14,18 @@ AI processes each article to:
 
 Articles land in epi_news_staging for admin review in Supabase.
 
+v2.0 Improvements:
+- Links extracted entities to database IDs (targets, drugs, companies)
+- Hardened JSON parsing with retry logic
+- Dynamic keyword list from database symbols
+- Structured logging for observability
+- Real PubMed RSS support
+
 Usage:
     python -m backend.etl.30_fetch_news
-    python -m backend.etl.30_fetch_news --source nature
+    python -m backend.etl.30_fetch_news --source nature_drug_discovery
     python -m backend.etl.30_fetch_news --dry-run
+    python -m backend.etl.30_fetch_news --skip-ai
 """
 
 import os
@@ -24,6 +33,7 @@ import sys
 import json
 import argparse
 import hashlib
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 import feedparser
@@ -58,9 +68,10 @@ RSS_FEEDS = {
     },
     "pubmed_epigenetics": {
         # PubMed RSS for epigenetics + cancer search
-        "url": "https://pubmed.ncbi.nlm.nih.gov/rss/search/1234567890/?limit=20&utm_campaign=pubmed-2&fc=20231101000000",  # Placeholder - needs real saved search
+        # To create your own: Go to PubMed, run search, click "Create RSS", use that URL
+        "url": "https://pubmed.ncbi.nlm.nih.gov/rss/search/1JQm7l2rTxPxVb-vQmWJJ2BNw8FCGAT8G3OPFypvnlnNQPWaXi/?limit=20&utm_campaign=pubmed-2&fc=20231101000000",
         "name": "PubMed Epigenetics",
-        "enabled": False,  # Enable after setting up saved search
+        "enabled": True,  # Enabled with real saved search
     },
     "biospace": {
         "url": "https://www.biospace.com/rss/news",
@@ -68,16 +79,142 @@ RSS_FEEDS = {
     },
 }
 
-# Epigenetic keywords for filtering
-EPI_KEYWORDS = [
-    "epigenetic", "epigenetics", "hdac", "histone deacetylase",
-    "ezh2", "bet inhibitor", "bromodomain", "dnmt", "methyltransferase",
-    "demethylase", "chromatin", "histone", "acetylation", "methylation",
-    "prmt", "dot1l", "lsd1", "kdm", "sirt", "tet2", "idh1", "idh2",
-    "vorinostat", "panobinostat", "romidepsin", "belinostat", "tucidinostat",
-    "tazemetostat", "enasidenib", "ivosidenib", "olutasidenib",
+# Base epigenetic keywords - will be enriched with database symbols
+BASE_EPI_KEYWORDS = [
+    # Core terms
+    "epigenetic", "epigenetics", "epigenome",
+    # Mechanisms
+    "hdac", "histone deacetylase", "bromodomain", "bet inhibitor",
+    "dnmt", "methyltransferase", "demethylase", "chromatin",
+    "histone", "acetylation", "methylation",
+    # Specific targets
+    "ezh2", "prmt", "prmt5", "dot1l", "lsd1", "kdm", "sirt", "tet2",
+    "idh1", "idh2", "menin", "mll", "nsd2", "m6a", "ythdf",
+    # Technologies
     "crispr epigenetic", "epigenetic editing", "gene silencing",
+    "epigenome editing", "dcas9",
+    # Drugs
+    "vorinostat", "panobinostat", "romidepsin", "belinostat", "tucidinostat",
+    "tazemetostat", "enasidenib", "ivosidenib", "olutasidenib", "vorasidenib",
+    "azacitidine", "decitabine", "entinostat",
 ]
+
+# ============================================================================
+# Database Lookups for Entity Linking
+# ============================================================================
+
+# Cache for database entities
+_db_targets_cache = None
+_db_drugs_cache = None
+_db_companies_cache = None
+
+def load_db_targets(supabase: Client) -> dict:
+    """Load target symbols from database for entity linking."""
+    global _db_targets_cache
+    if _db_targets_cache is not None:
+        return _db_targets_cache
+
+    try:
+        result = supabase.table("epi_targets").select("id, symbol, name").execute()
+        _db_targets_cache = {
+            t["symbol"].upper(): t["id"] for t in result.data
+        }
+        # Also add full names as keys
+        for t in result.data:
+            if t.get("name"):
+                _db_targets_cache[t["name"].upper()] = t["id"]
+        return _db_targets_cache
+    except Exception as e:
+        print(f"  Warning: Could not load targets: {e}")
+        return {}
+
+def load_db_drugs(supabase: Client) -> dict:
+    """Load drug names from database for entity linking."""
+    global _db_drugs_cache
+    if _db_drugs_cache is not None:
+        return _db_drugs_cache
+
+    try:
+        result = supabase.table("epi_drugs").select("id, name").execute()
+        _db_drugs_cache = {
+            d["name"].upper(): d["id"] for d in result.data
+        }
+        return _db_drugs_cache
+    except Exception as e:
+        print(f"  Warning: Could not load drugs: {e}")
+        return {}
+
+def load_db_companies(supabase: Client) -> dict:
+    """Load company names from database for entity linking."""
+    global _db_companies_cache
+    if _db_companies_cache is not None:
+        return _db_companies_cache
+
+    try:
+        result = supabase.table("epi_companies").select("id, name, ticker").execute()
+        _db_companies_cache = {}
+        for c in result.data:
+            _db_companies_cache[c["name"].upper()] = c["id"]
+            if c.get("ticker"):
+                _db_companies_cache[c["ticker"].upper()] = c["id"]
+        return _db_companies_cache
+    except Exception as e:
+        print(f"  Warning: Could not load companies: {e}")
+        return {}
+
+def get_enriched_keywords(supabase: Client) -> list:
+    """Build keyword list enriched with database symbols."""
+    keywords = list(BASE_EPI_KEYWORDS)
+
+    # Add target symbols
+    targets = load_db_targets(supabase)
+    for symbol in targets.keys():
+        if len(symbol) >= 3:  # Skip very short symbols to avoid false positives
+            keywords.append(symbol.lower())
+
+    # Add drug names
+    drugs = load_db_drugs(supabase)
+    for name in drugs.keys():
+        keywords.append(name.lower())
+
+    return list(set(keywords))
+
+def link_entities_to_db(entities: dict, supabase: Client) -> dict:
+    """Link extracted entity names to database IDs."""
+    targets = load_db_targets(supabase)
+    drugs = load_db_drugs(supabase)
+    companies = load_db_companies(supabase)
+
+    linked = {
+        "drugs": entities.get("drugs", []),
+        "targets": entities.get("targets", []),
+        "companies": entities.get("companies", []),
+        "key_finding": entities.get("key_finding", ""),
+        # New: linked IDs
+        "linked_target_ids": [],
+        "linked_drug_ids": [],
+        "linked_company_ids": [],
+    }
+
+    # Link targets
+    for target_name in entities.get("targets", []):
+        target_upper = target_name.upper()
+        if target_upper in targets:
+            linked["linked_target_ids"].append(targets[target_upper])
+
+    # Link drugs
+    for drug_name in entities.get("drugs", []):
+        drug_upper = drug_name.upper()
+        if drug_upper in drugs:
+            linked["linked_drug_ids"].append(drugs[drug_upper])
+
+    # Link companies
+    for company_name in entities.get("companies", []):
+        company_upper = company_name.upper()
+        if company_upper in companies:
+            linked["linked_company_ids"].append(companies[company_upper])
+
+    return linked
 
 # ============================================================================
 # Supabase Client
@@ -140,7 +277,6 @@ def fetch_rss_feed(source_key: str) -> list[dict]:
                 abstract = entry.content[0].get("value", abstract)
 
             # Clean HTML from abstract
-            import re
             abstract = re.sub(r'<[^>]+>', '', abstract)
             abstract = abstract[:2000]  # Limit length
 
@@ -168,16 +304,46 @@ def fetch_rss_feed(source_key: str) -> list[dict]:
         print(f"  Error fetching {source_key}: {e}")
         return []
 
-def is_epigenetics_relevant(article: dict) -> bool:
+def is_epigenetics_relevant(article: dict, keywords: list) -> bool:
     """Check if article is relevant to epigenetics/oncology."""
     text = f"{article['title']} {article['abstract']}".lower()
-    return any(keyword in text for keyword in EPI_KEYWORDS)
+    return any(keyword in text for keyword in keywords)
 
 # ============================================================================
-# AI Processing
+# AI Processing with Hardened JSON Parsing
 # ============================================================================
 
-def process_with_ai(article: dict, model) -> dict:
+def parse_ai_json(text: str) -> Optional[dict]:
+    """Parse JSON from AI response with multiple fallback strategies."""
+    # Strategy 1: Direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: Remove markdown code blocks
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        # Remove first and last lines (```json and ```)
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        cleaned = "\n".join(lines)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 3: Find JSON object in text
+    match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+def process_with_ai(article: dict, model, retry_on_fail: bool = True) -> dict:
     """Use Gemini to analyze article and extract entities."""
 
     prompt = f"""Analyze this scientific article about drug discovery/oncology.
@@ -205,14 +371,33 @@ Respond ONLY with the JSON object, no other text."""
         response = model.generate_content(prompt)
         text = response.text.strip()
 
-        # Clean up response - remove markdown code blocks if present
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        text = text.strip()
+        result = parse_ai_json(text)
 
-        result = json.loads(text)
+        if result is None:
+            if retry_on_fail:
+                # Retry with stricter prompt
+                print(f"    JSON parse failed, retrying with strict prompt...")
+                retry_prompt = f"""Return ONLY valid JSON for this article. No markdown, no commentary.
+
+TITLE: {article['title']}
+
+{{
+    "summary": "brief summary",
+    "category": "epi_drug or clinical_trial or research or other",
+    "impact_flag": "bullish or bearish or neutral",
+    "confidence": 0.8,
+    "drugs": [],
+    "targets": [],
+    "companies": [],
+    "key_finding": "main finding"
+}}"""
+                retry_response = model.generate_content(retry_prompt)
+                result = parse_ai_json(retry_response.text.strip())
+
+            if result is None:
+                print(f"    AI JSON parse failed after retry. Raw text: {text[:200]}...")
+                return _empty_ai_result()
+
         return {
             "ai_summary": result.get("summary", ""),
             "ai_category": result.get("category", "other"),
@@ -227,13 +412,17 @@ Respond ONLY with the JSON object, no other text."""
         }
     except Exception as e:
         print(f"    AI processing error: {e}")
-        return {
-            "ai_summary": None,
-            "ai_category": "other",
-            "ai_impact_flag": "unknown",
-            "ai_confidence": 0.0,
-            "ai_extracted_entities": {},
-        }
+        return _empty_ai_result()
+
+def _empty_ai_result() -> dict:
+    """Return empty AI result structure."""
+    return {
+        "ai_summary": None,
+        "ai_category": "other",
+        "ai_impact_flag": "unknown",
+        "ai_confidence": 0.0,
+        "ai_extracted_entities": {},
+    }
 
 # ============================================================================
 # Database Operations
@@ -260,6 +449,23 @@ def insert_article(supabase: Client, article: dict) -> bool:
         print(f"    Insert error: {e}")
         return False
 
+def log_etl_run(supabase: Client, stats: dict, source_keys: list) -> None:
+    """Log ETL run to etl_refresh_log table for observability."""
+    try:
+        record = {
+            "entity_type": "news",
+            "api_source": ",".join(source_keys),
+            "records_found": stats["fetched"],
+            "records_inserted": stats["inserted"],
+            "records_skipped": stats["skipped_duplicate"] + stats["skipped_irrelevant"],
+            "status": "success" if stats["inserted"] > 0 or stats["fetched"] == 0 else "no_new_records",
+            "details": json.dumps(stats),
+        }
+        supabase.table("etl_refresh_log").insert(record).execute()
+    except Exception as e:
+        # Don't fail the pipeline if logging fails
+        print(f"  Warning: Could not log ETL run: {e}")
+
 # ============================================================================
 # Main Pipeline
 # ============================================================================
@@ -273,14 +479,18 @@ def run_news_fetch(
     """Main news fetching pipeline."""
 
     print("\n" + "="*60)
-    print("NEWS FETCHER - ETL 30")
+    print("NEWS FETCHER - ETL 30 (v2.0)")
     print("="*60)
 
     # Initialize clients
     if not dry_run:
         supabase = get_supabase()
+        # Load enriched keywords from database
+        keywords = get_enriched_keywords(supabase)
+        print(f"Loaded {len(keywords)} keywords (incl. {len(load_db_targets(supabase))} targets, {len(load_db_drugs(supabase))} drugs)")
     else:
         supabase = None
+        keywords = BASE_EPI_KEYWORDS
 
     if not skip_ai:
         model = get_gemini_model()
@@ -306,6 +516,8 @@ def run_news_fetch(
         "inserted": 0,
         "skipped_duplicate": 0,
         "skipped_irrelevant": 0,
+        "ai_parse_failures": 0,
+        "entities_linked": 0,
     }
 
     # Process each source
@@ -319,7 +531,7 @@ def run_news_fetch(
             print(f"\n  Processing: {article['title'][:60]}...")
 
             # Filter for relevance
-            if filter_relevant and not is_epigenetics_relevant(article):
+            if filter_relevant and not is_epigenetics_relevant(article, keywords):
                 print(f"    Skipping (not epigenetics-related)")
                 stats["skipped_irrelevant"] += 1
                 continue
@@ -339,7 +551,20 @@ def run_news_fetch(
                 print(f"    Running AI analysis...")
                 ai_result = process_with_ai(article, model)
                 article.update(ai_result)
+
+                if ai_result.get("ai_confidence", 0) == 0:
+                    stats["ai_parse_failures"] += 1
+
                 print(f"    Category: {ai_result['ai_category']}, Impact: {ai_result['ai_impact_flag']}")
+
+                # Link entities to database IDs
+                if not dry_run and ai_result.get("ai_extracted_entities"):
+                    linked = link_entities_to_db(ai_result["ai_extracted_entities"], supabase)
+                    article["ai_extracted_entities"] = linked
+                    total_linked = len(linked.get("linked_target_ids", [])) + len(linked.get("linked_drug_ids", [])) + len(linked.get("linked_company_ids", []))
+                    if total_linked > 0:
+                        stats["entities_linked"] += total_linked
+                        print(f"    Linked {total_linked} entities to database")
 
             # Insert into database
             if not dry_run:
@@ -367,16 +592,22 @@ def run_news_fetch(
                 print(f"    [DRY RUN] Would insert")
                 stats["inserted"] += 1
 
+    # Log ETL run
+    if not dry_run:
+        log_etl_run(supabase, stats, feed_keys)
+
     # Summary
     print("\n" + "="*60)
     print("SUMMARY")
     print("="*60)
-    print(f"  Fetched:           {stats['fetched']}")
-    print(f"  Relevant:          {stats['relevant']}")
+    print(f"  Fetched:            {stats['fetched']}")
+    print(f"  Relevant:           {stats['relevant']}")
     print(f"  Skipped irrelevant: {stats['skipped_irrelevant']}")
     print(f"  Skipped duplicate:  {stats['skipped_duplicate']}")
     print(f"  New articles:       {stats['new']}")
     print(f"  Inserted:           {stats['inserted']}")
+    print(f"  AI parse failures:  {stats['ai_parse_failures']}")
+    print(f"  Entities linked:    {stats['entities_linked']}")
     print("\nNext step: Review pending articles in Supabase Table Editor")
     print("  Table: epi_news_staging")
     print("  Filter: status = 'pending'")

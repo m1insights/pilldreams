@@ -34,6 +34,11 @@ import type {
   PatentDetail,
   NewsSummary,
   NewsDetail,
+  TrialSummary,
+  TrialDetail,
+  CalendarStats,
+  ConferenceSummary,
+  DateConfidence,
 } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -348,6 +353,62 @@ export const aiApi = {
   },
 }
 
+// Calendar API (matches /calendar/* endpoints)
+export const calendarApi = {
+  getTrials: async (params?: {
+    phase?: string
+    status?: string
+    drug_id?: string
+    date_confidence?: DateConfidence
+    exclude_placeholders?: boolean
+    limit?: number
+    offset?: number
+  }): Promise<TrialSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.phase) searchParams.set("phase", params.phase)
+    if (params?.status) searchParams.set("status", params.status)
+    if (params?.drug_id) searchParams.set("drug_id", params.drug_id)
+    if (params?.date_confidence) searchParams.set("date_confidence", params.date_confidence)
+    if (params?.exclude_placeholders) searchParams.set("exclude_placeholders", "true")
+    if (params?.limit) searchParams.set("limit", String(params.limit))
+    if (params?.offset) searchParams.set("offset", String(params.offset))
+
+    const query = searchParams.toString()
+    return fetchApi<TrialSummary[]>(`/calendar/trials${query ? `?${query}` : ""}`)
+  },
+
+  getUpcomingTrials: async (params?: {
+    days?: number
+    phase_min?: number
+    exclude_placeholders?: boolean
+  }): Promise<TrialSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.days) searchParams.set("days", String(params.days))
+    if (params?.phase_min) searchParams.set("phase_min", String(params.phase_min))
+    if (params?.exclude_placeholders) searchParams.set("exclude_placeholders", "true")
+
+    const query = searchParams.toString()
+    return fetchApi<TrialSummary[]>(`/calendar/trials/upcoming${query ? `?${query}` : ""}`)
+  },
+
+  getTrial: async (nctId: string): Promise<TrialDetail> => {
+    return fetchApi<TrialDetail>(`/calendar/trials/${nctId}`)
+  },
+
+  getStats: async (): Promise<CalendarStats> => {
+    return fetchApi<CalendarStats>("/calendar/stats")
+  },
+
+  getTrialsByDrug: async (drugId: string): Promise<TrialSummary[]> => {
+    return fetchApi<TrialSummary[]>(`/calendar/drugs/${drugId}/trials`)
+  },
+
+  getConferences: async (year?: number): Promise<ConferenceSummary[]> => {
+    const query = year ? `?year=${year}` : ""
+    return fetchApi<ConferenceSummary[]>(`/calendar/conferences${query}`)
+  },
+}
+
 // Export all APIs
 export const api = {
   targets: targetsApi,
@@ -364,6 +425,7 @@ export const api = {
   patents: patentsApi,
   news: newsApi,
   ai: aiApi,
+  calendar: calendarApi,
 }
 
 export { ApiError }

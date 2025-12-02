@@ -488,3 +488,59 @@ export interface NewsDetail extends NewsSummary {
   linked_drug_ids: string[] | null
   linked_target_ids: string[] | null
 }
+
+// ============ Trial Calendar Types ============
+
+export type DateConfidence = "confirmed" | "estimated" | "placeholder" | "unknown"
+
+export interface TrialSummary {
+  id: string
+  nct_id: string
+  trial_title: string | null
+  drug_id: string | null
+  drug_name: string | null
+  indication_name: string | null
+  phase: string | null
+  status: string | null
+  primary_completion_date: string | null
+  primary_completion_type: string | null
+  lead_sponsor: string | null
+  enrollment: number | null
+  date_confidence: DateConfidence
+  date_confidence_tooltip: string
+}
+
+export interface TrialDetail extends TrialSummary {
+  study_completion_date: string | null
+  study_completion_type: string | null
+  results_first_posted: string | null
+  start_date: string | null
+  lead_sponsor_type: string | null
+  collaborators: string[] | null
+  study_type: string | null
+  enrollment_type: string | null
+  source_url: string | null
+  last_api_update: string | null
+}
+
+export interface CalendarStats {
+  total_trials: number
+  by_phase: Record<string, number>
+  by_status: Record<string, number>
+  by_date_confidence: Record<string, number>
+  upcoming_30_days: number
+  upcoming_90_days: number
+}
+
+export interface ConferenceSummary {
+  id: string
+  name: string
+  short_name: string | null
+  start_date: string
+  end_date: string | null
+  abstract_deadline: string | null
+  year: number
+  location: string | null
+  oncology_focus: boolean
+  epigenetics_track: boolean
+}

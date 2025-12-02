@@ -52,6 +52,10 @@ export const Navbar = () => {
       link: "/explore/news",
     },
     {
+      name: "Calendar",
+      link: "/calendar",
+    },
+    {
       name: "Companies",
       link: "/explore/companies",
     },

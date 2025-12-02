@@ -1,6 +1,6 @@
 # Epigenetics Drug Intelligence Database Schema
 
-**Last Updated:** 2025-12-01
+**Last Updated:** 2025-12-03
 
 ## Overview
 
@@ -25,6 +25,10 @@ The central entity representing drug compounds. Each drug has:
 - **is_nsd2_targeted**: Flag indicating if the drug targets NSD2
 - **last_ot_refresh**: Timestamp of last Open Targets API refresh
 - **last_chembl_refresh**: Timestamp of last ChEMBL API refresh
+- **ctgov_query_tier**: ClinicalTrials.gov query strategy:
+  - `tier1_curated`: Only query specific NCT IDs from ci_curated_trials (for PCSK9, TTR, etc.)
+  - `tier2_oncology`: Query by drug name + oncology conditions filter (default for core epi drugs)
+  - `skip`: Do not query CT.gov for this drug (e.g., JQ1 research tool)
 - Timestamps for creation and updates
 
 ### EPI_TARGETS (79 records)
@@ -272,6 +276,12 @@ Combination categories:
 - 24 companies (16 public, 8 private)
 - 17 epigenetic editing assets
 - 10 patents
+- **991 clinical trials in trial calendar** (as of 2025-12-02)
+  - Phase 3: 63 trials
+  - Phase 2: 355 trials
+  - Phase 1: 514 trials
+  - Currently Recruiting: 260
+  - Completed: 543
 
 ### Score Distribution
 - **High (≥60):** 17 drugs - Top: VORASIDENIB (69.5), GSK126 (68.0), ENTINOSTAT (67.4)
@@ -435,3 +445,112 @@ Used to:
 - Track data quality and freshness
 - Identify outdated information (acquisitions, phase changes, new approvals)
 - Maintain audit trail for regulatory compliance
+
+## Competitive Intelligence Tables
+
+### CI_TRIAL_CALENDAR
+Clinical trial dates from ClinicalTrials.gov for the Trial Readout Calendar feature. Each record has:
+- A unique ID
+- **nct_id**: ClinicalTrials.gov identifier (e.g., "NCT04659863")
+- **trial_title**: Brief title of the study
+- **primary_completion_date**: When the trial's primary endpoint data will be available
+- **primary_completion_type**: "Actual" or "Anticipated"
+- **study_completion_date**: Full study completion date
+- **start_date**: When the trial started enrolling
+- **phase**: Clinical phase ("Phase 1", "Phase 2", "Phase 3", "Phase 4", "Early Phase 1")
+- **status**: Trial status ("Recruiting", "Active, not recruiting", "Completed", "Terminated", etc.)
+- **drug_id**: Foreign key to EPI_DRUGS
+- **drug_name**: Denormalized for quick display
+- **indication_id**: Foreign key to EPI_INDICATIONS
+- **lead_sponsor**: Company/institution running the trial
+- **lead_sponsor_type**: "Industry", "Academic", "NIH", "Other"
+- **enrollment**: Number of participants
+- **query_tier**: How this trial was discovered ("tier1_curated", "tier2_oncology", "tier3_discovery")
+- **last_api_update**: When we last refreshed from CT.gov
+
+Query Strategy:
+- Tier 1 drugs (PCSK9, TTR): Only fetch curated NCT IDs to avoid cardiovascular trial pollution
+- Tier 2 drugs (HDAC, BET, EZH2): Query by drug name + oncology conditions filter
+- Tier 3: Mechanism-based discovery for new trials
+
+### CI_CURATED_TRIALS
+Manually curated NCT IDs for Tier 1 drugs where automated oncology filtering would return irrelevant trials:
+- **drug_id**: Foreign key to EPI_DRUGS
+- **drug_name**: Drug name for CSV import
+- **nct_id**: The specific NCT ID to fetch
+- **relevance_notes**: Why this trial is epigenetic-relevant
+
+### CI_CONFERENCES
+Major oncology conferences for the catalyst calendar. Seeded yearly:
+- **name**: Full conference name (e.g., "ASCO Annual Meeting")
+- **short_name**: Abbreviation (e.g., "ASCO")
+- **start_date**: Conference start date
+- **end_date**: Conference end date
+- **abstract_deadline**: When abstracts are due
+- **year**: Conference year
+- **location**: City/venue
+- **oncology_focus**: Boolean
+- **epigenetics_track**: Boolean - has dedicated epigenetics sessions
+
+### CI_CHANGE_LOG
+Audit trail of all changes detected across entities for weekly digests and alerts:
+- **entity_type**: "drug", "trial", "company", "patent", "news"
+- **entity_id**: UUID of the changed entity
+- **entity_name**: Name for display
+- **change_type**: "phase_change", "status_change", "new_entity", "score_change", "date_change"
+- **field_changed**: Which field changed
+- **old_value**: Previous value
+- **new_value**: New value
+- **significance**: "low", "medium", "high", "critical"
+- **source**: "ctgov", "fda", "news", "patent", "manual"
+- **digest_sent**: Boolean - has this been included in a digest email
+
+Significance levels:
+- Critical: FDA approval, Phase 2→3 advancement, company acquisition
+- High: Trial terminated, new IND filing
+- Medium: Completion date change, new patent
+- Low: News mention, score recalculation
+
+### CI_USER_DIGEST_PREFS
+User preferences for receiving weekly/daily change digest emails:
+- **user_id**: Optional Supabase Auth user ID
+- **email**: Email address for digest delivery (unique)
+- **name**: Display name
+- **digest_frequency**: "daily", "weekly", "monthly", "never"
+- **digest_day**: Day of week for weekly digest (0=Sunday, 1=Monday, etc.)
+- **digest_hour**: Hour of day (0-23) in user's timezone
+- **digest_timezone**: Timezone string (default: "America/New_York")
+- **min_significance**: Minimum change level to include ("low", "medium", "high", "critical")
+- **entity_types**: Array of entity types to include (default: ['drug', 'trial', 'target'])
+- **watched_drug_ids**: Optional array of specific drug UUIDs to track
+- **watched_target_ids**: Optional array of specific target UUIDs to track
+- **filter_to_watchlist**: If true, only include changes to watched entities
+- **slack_webhook_url**: Optional Slack integration
+- **is_active**: Boolean - is subscription active
+- **email_verified**: Boolean - has email been verified
+- **last_digest_sent**: Timestamp of last sent digest
+
+### CI_DIGEST_HISTORY
+Audit trail of sent digests for tracking and debugging:
+- **user_id**: Foreign key to CI_USER_DIGEST_PREFS
+- **email**: Email address (denormalized)
+- **digest_type**: "daily", "weekly", "monthly", "alert"
+- **change_count**: Number of changes included
+- **change_ids**: Array of CI_CHANGE_LOG IDs included
+- **sent_at**: Timestamp
+- **delivery_status**: "sent", "delivered", "bounced", "failed"
+- **resend_message_id**: Resend API message ID for tracking
+- **subject**: Email subject line
+- **html_preview**: First 500 chars of HTML content
+- **opened_at**: Timestamp if email was opened (via tracking pixel)
+- **clicked_at**: Timestamp if links were clicked
+
+### CI_ENTITY_SNAPSHOTS
+Daily snapshots of entity state for change detection comparison:
+- **entity_type**: "drug", "trial", "score", "target"
+- **entity_id**: Entity identifier (UUID or string)
+- **snapshot_data**: JSONB blob of key fields to compare
+- **snapshot_date**: Date of snapshot
+- Unique constraint: (entity_type, entity_id, snapshot_date)
+
+ETL script `34_detect_changes.py` compares today's entity state against the most recent snapshot to detect changes. New snapshots are saved after each run.

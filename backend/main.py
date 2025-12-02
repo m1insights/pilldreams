@@ -30,7 +30,9 @@ def health_check():
 
 from backend.api import endpoints
 from backend.api import ai_endpoints
+from backend.api import calendar_endpoints
 
 app.include_router(endpoints.router)
 app.include_router(ai_endpoints.router)
+app.include_router(calendar_endpoints.router)
 

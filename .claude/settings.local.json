@@ -40,7 +40,8 @@
       "Bash(echo:*)",
       "Bash(find:*)",
       "WebSearch",
-      "Bash(pbcopy)"
+      "Bash(pbcopy)",
+      "WebFetch(domain:search.patentsview.org)"
     ]
   },
   "enableAllProjectMcpServers": true,

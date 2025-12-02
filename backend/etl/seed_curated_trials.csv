@@ -1,0 +1,20 @@
+drug_name,nct_id,relevance_notes
+# PCSK9 Inhibitors - Only include trials studying epigenetic mechanism or cancer context
+# Most PCSK9 trials are cardiovascular - we ONLY want the rare ones with epigenetic relevance
+INCLISIRAN SODIUM,NCT04659863,"ORION-18: Long-term siRNA mechanism study with epigenetic silencing"
+INCLISIRAN SODIUM,NCT05030428,"Mechanism of PCSK9 gene silencing via siRNA"
+# Note: Inclisiran is an siRNA drug that works via RNA interference / gene silencing
+# This is an epigenetic-adjacent mechanism worth tracking
+
+# TTR Drugs - Only include if studying epigenetic modification or oncology indication
+# Most TTR trials are amyloidosis - we skip those
+PATISIRAN SODIUM,NCT03862807,"APOLLO-B: RNAi mechanism study - gene silencing"
+# Note: Patisiran is also siRNA - tracks gene silencing mechanism
+
+# E2F Drugs - transcription factor modulators
+# Most are vascular - we only want cancer-related
+EDIFOLIGIDE SODIUM,NCT00096954,"PREVENT IV: E2F decoy study with epigenetic implications"
+
+# Placeholder for future curation
+# When you find a Tier 1 drug in a cancer/epigenetic trial, add it here
+# Format: DRUG_NAME,NCTxxxxxxxx,"Brief relevance note"
