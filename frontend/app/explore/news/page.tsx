@@ -438,16 +438,8 @@ export default function NewsPage() {
               <p className="text-pd-text-muted text-sm max-w-md mx-auto">
                 {allNews.length > 0
                   ? "Try adjusting your filters to see more articles."
-                  : "The intelligence feed is empty. News articles will appear here after they're fetched and approved in Supabase."}
+                  : "Our intelligence feed is being curated. Check back soon for AI-analyzed news and research from Nature, PubMed, and industry sources."}
               </p>
-              <div className="mt-4 p-4 bg-pd-secondary rounded-lg text-left max-w-md mx-auto">
-                <div className="text-pd-text-secondary text-sm font-medium mb-2">To populate:</div>
-                <ol className="text-pd-text-muted text-xs space-y-1">
-                  <li>1. Run the schema migration in Supabase</li>
-                  <li>2. Run: <code className="bg-pd-primary px-1 rounded">python -m backend.etl.30_fetch_news</code></li>
-                  <li>3. Approve articles in Supabase Table Editor</li>
-                </ol>
-              </div>
             </div>
           </div>
         ) : (
