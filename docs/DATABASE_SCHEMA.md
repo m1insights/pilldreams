@@ -126,6 +126,22 @@ Contains raw chemistry data fetched from ChEMBL for each drug. Each record has:
 - chem_score: Computed chemistry score (0-100) derived from potency, selectivity, and richness
 - A creation timestamp
 
+### CHEMBL_TARGET_ACTIVITIES
+Per-target activity data for potency visualization. Each record represents activity against one target for one drug:
+- A unique ID
+- **drug_id**: Foreign key to EPI_DRUGS
+- **target_chembl_id**: ChEMBL target ID (e.g., "CHEMBL325" for HDAC1)
+- **target_name**: Human-readable target name (e.g., "Histone deacetylase 1")
+- **target_type**: Target classification
+- **best_pact**: Best pActivity value (pXC50) - higher = more potent
+- **median_pact**: Median pActivity across all measurements
+- **best_value_nm**: Best activity value in nanomolar (IC50/Ki)
+- **n_activities**: Number of activity measurements
+- **activity_types**: JSON array of assay types (e.g., ["IC50", "Ki"])
+- **is_primary_target**: Boolean flag for primary vs off-target
+
+Used by the frontend potency chart to visualize drug selectivity profiles across multiple targets.
+
 ## Epigenetic Editing Tables
 
 These tables track next-generation epigenetic editing programs (CRISPR/TALE-based gene silencing).
