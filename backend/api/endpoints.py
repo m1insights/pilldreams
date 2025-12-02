@@ -1188,26 +1188,26 @@ class NewsSummary(BaseModel):
     id: str
     title: str
     source: Optional[str] = None
+    source_url: Optional[str] = None
     pub_date: Optional[str] = None
-    category: Optional[str] = None
+    ai_category: Optional[str] = None
     ai_summary: Optional[str] = None
     ai_impact_flag: Optional[str] = None
+    ai_extracted_entities: Optional[dict] = None
 
 
 class NewsDetail(BaseModel):
     id: str
     title: str
     source: Optional[str] = None
-    url: Optional[str] = None
+    source_url: Optional[str] = None
     pub_date: Optional[str] = None
-    category: Optional[str] = None
-    raw_text: Optional[str] = None
+    ai_category: Optional[str] = None
+    abstract: Optional[str] = None
     ai_summary: Optional[str] = None
     ai_impact_flag: Optional[str] = None
     ai_extracted_entities: Optional[dict] = None
-    related_drug_ids: Optional[List[str]] = None
-    related_target_ids: Optional[List[str]] = None
-    related_editing_asset_ids: Optional[List[str]] = None
+    ai_relevance_reason: Optional[str] = None
 
 
 # ============ News Endpoints ============
@@ -1219,15 +1219,16 @@ async def list_news(
     impact_flag: Optional[str] = None,
     limit: int = Query(default=50, le=200)
 ):
-    """List AI-analyzed news and research articles."""
+    """List AI-analyzed news and research articles (approved only)."""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not connected")
 
     try:
-        query = supabase.table("epi_news").select("*")
+        # Read from staging table, only show approved articles
+        query = supabase.table("epi_news_staging").select("*").eq("status", "approved")
 
         if category:
-            query = query.eq("category", category)
+            query = query.eq("ai_category", category)
         if source:
             query = query.ilike("source", f"%{source}%")
         if impact_flag:
@@ -1240,10 +1241,12 @@ async def list_news(
                 id=n["id"],
                 title=n["title"],
                 source=n.get("source"),
+                source_url=n.get("source_url"),
                 pub_date=str(n["pub_date"]) if n.get("pub_date") else None,
-                category=n.get("category"),
+                ai_category=n.get("ai_category"),
                 ai_summary=n.get("ai_summary"),
-                ai_impact_flag=n.get("ai_impact_flag")
+                ai_impact_flag=n.get("ai_impact_flag"),
+                ai_extracted_entities=n.get("ai_extracted_entities")
             )
             for n in news
         ]
@@ -1259,9 +1262,10 @@ async def get_news(news_id: str):
         raise HTTPException(status_code=500, detail="Database not connected")
 
     try:
-        result = supabase.table("epi_news")\
+        result = supabase.table("epi_news_staging")\
             .select("*")\
             .eq("id", news_id)\
+            .eq("status", "approved")\
             .single().execute()
 
         if not result.data:
@@ -1272,16 +1276,14 @@ async def get_news(news_id: str):
             id=n["id"],
             title=n["title"],
             source=n.get("source"),
-            url=n.get("url"),
+            source_url=n.get("source_url"),
             pub_date=str(n["pub_date"]) if n.get("pub_date") else None,
-            category=n.get("category"),
-            raw_text=n.get("raw_text"),
+            ai_category=n.get("ai_category"),
+            abstract=n.get("abstract"),
             ai_summary=n.get("ai_summary"),
             ai_impact_flag=n.get("ai_impact_flag"),
             ai_extracted_entities=n.get("ai_extracted_entities"),
-            related_drug_ids=n.get("related_drug_ids"),
-            related_target_ids=n.get("related_target_ids"),
-            related_editing_asset_ids=n.get("related_editing_asset_ids")
+            ai_relevance_reason=n.get("ai_relevance_reason")
         )
 
     except HTTPException:
