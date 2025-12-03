@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { targetsApi } from "@/lib/api"
 import type { TargetSummary } from "@/lib/api/types"
-import { DataTable } from "@/components/data"
-import { ScoreBadge } from "@/components/data"
+import { DataTable, ScoreBadge, WatchButton } from "@/components/data"
 import { cn } from "@/lib/utils"
 
 // Target family filter pills
@@ -111,6 +110,14 @@ export default function TargetLandscapePage() {
       sortable: true,
       render: (value: number | null) =>
         value !== null ? <ScoreBadge score={value} size="sm" /> : <span className="text-pd-text-muted">-</span>,
+    },
+    {
+      key: "actions",
+      label: "",
+      sortable: false,
+      render: (_: unknown, row: TargetSummary) => (
+        <WatchButton id={String(row.id)} type="target" name={row.symbol} variant="icon" />
+      ),
     },
   ]
 

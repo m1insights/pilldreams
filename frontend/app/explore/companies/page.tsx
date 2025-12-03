@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { companiesApi } from "@/lib/api"
 import type { CompanySummary } from "@/lib/api/types"
-import { DataTable, ScoreBadge } from "@/components/data"
+import { DataTable, ScoreBadge, WatchButton } from "@/components/data"
 import { cn } from "@/lib/utils"
 
 // Focus filter pills
@@ -196,6 +196,14 @@ export default function CompaniesLandscapePage() {
       sortable: true,
       render: (value: number | null) =>
         value !== null ? <ScoreBadge score={value} size="sm" /> : <span className="text-pd-text-muted">-</span>,
+    },
+    {
+      key: "actions",
+      label: "",
+      sortable: false,
+      render: (_: unknown, row: CompanySummary) => (
+        <WatchButton id={row.id} type="company" name={row.name} variant="icon" />
+      ),
     },
   ]
 

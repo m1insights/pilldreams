@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { drugsApi } from "@/lib/api"
 import type { DrugSummary } from "@/lib/api/types"
-import { DataTable } from "@/components/data"
-import { ScoreBadge } from "@/components/data"
+import { DataTable, ScoreBadge, WatchButton } from "@/components/data"
 import { cn } from "@/lib/utils"
 
 // Drug status filter pills
@@ -326,6 +325,14 @@ export default function DrugLandscapePage() {
       sortable: true,
       render: (value: number | null) =>
         value !== null ? <ScoreBadge score={value} size="sm" /> : <span className="text-pd-text-muted">-</span>,
+    },
+    {
+      key: "actions",
+      label: "",
+      sortable: false,
+      render: (_: unknown, row: DrugSummary) => (
+        <WatchButton id={row.id} type="drug" name={row.name} variant="icon" />
+      ),
     },
   ]
 
