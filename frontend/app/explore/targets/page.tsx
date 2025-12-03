@@ -181,6 +181,7 @@ export default function TargetLandscapePage() {
             columns={columns}
             data={targets}
             sortable={true}
+            defaultSort={{ key: "asset_count", direction: "desc" }}
             onRowClick={(row) => (window.location.href = `/target/${row.id}`)}
             emptyMessage="No targets found"
           />

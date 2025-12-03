@@ -12,8 +12,8 @@
 |------|---------|--------|-----------|-------|
 | Week 1 | Trial Calendar Foundation | ✅ **DONE** | 2025-12-02 | 991 trials ingested |
 | Week 2 | Change Detection + Digest | ✅ **DONE** | 2025-12-03 | ETL + email template ready |
-| Week 3 | PDUFA Tracker | 🔲 Pending | - | Next priority |
-| Week 4 | Watchlist + Alerts | 🔲 Pending | - | |
+| Week 3 | PDUFA Tracker | ✅ **DONE** | 2025-12-02 | 8 PDUFA dates seeded |
+| Week 4 | Watchlist + Alerts | 🔲 Pending | - | Next priority |
 | Week 5 | Exports (PPTX/XLSX) | 🔲 Pending | - | |
 | Week 6 | Auth + Payments | 🔲 Pending | - | |
 
@@ -69,14 +69,19 @@
 
 **ETL Scripts Created**:
 - `backend/etl/34_detect_changes.py` - Compares snapshots, detects changes
-  - Supports drugs, trials, scores entity types
+  - Supports drugs, trials, scores, **news**, **patents** entity types
   - Auto-classifies significance (critical/high/medium/low)
   - Dry-run mode for testing
+  - News detection: Tracks approved articles from `epi_news_staging`
+  - Patent detection: Tracks new patents from `epi_patents`
 - `backend/etl/35_generate_digest.py` - Generates HTML email digests
-  - Professional email template with branded styling
+  - **Phase4 branded dark theme** matching app homepage
+  - Metallic gradient logo treatment
+  - Red/Blue/Green color scheme (no yellow)
   - Resend API integration for delivery
   - Preview mode generates local HTML file
   - Plain text fallback included
+  - Sample data includes news/patent examples
 
 **Significance Rules**:
 | Change Type | Significance |
@@ -84,20 +89,80 @@
 | Phase 2 → Phase 3 | Critical |
 | FDA Approval | Critical |
 | Trial Terminated/Completed | High |
+| New approved news (bullish/bearish) | High |
+| New epigenetic editing patent | High |
 | Date Change | Medium |
 | Score Change (>10 pts) | Medium |
+| New patent (epi_therapy) | Medium |
 | Minor Updates | Low |
 
-**Files Created**:
+**Files Created/Updated**:
 - `core/migration_ci_change_detection.sql`
-- `backend/etl/34_detect_changes.py`
-- `backend/etl/35_generate_digest.py`
+- `backend/etl/34_detect_changes.py` - Added news + patent detection
+- `backend/etl/35_generate_digest.py` - Phase4 branded email template
 
 **To Activate**:
 1. Run migration in Supabase: `cat core/migration_ci_change_detection.sql | pbcopy`
 2. Add `RESEND_API_KEY` to `.env`
 3. Run daily: `python -m backend.etl.34_detect_changes`
 4. Run weekly: `python -m backend.etl.35_generate_digest`
+5. Preview email: `python -m backend.etl.35_generate_digest --preview`
+
+#### 2025-12-02: PDUFA Tracker ✅
+
+**Schema Created** (via `core/migration_ci_pdufa.sql`):
+- `ci_pdufa_dates` - PDUFA dates for NDAs/BLAs under FDA review
+  - Tracks drug name, company, application type (NDA/BLA/sNDA/sBLA)
+  - Status: pending, approved, crl (rejection), withdrawn, extended, delayed
+  - PDUFA date type: standard (10mo), priority (6mo), accelerated, breakthrough
+  - Links to epi_drugs table via drug_id
+- `ci_pdufa_history` - Audit trail of PDUFA date changes (extensions, approvals)
+- Indexes on pdufa_date, status, company_ticker for fast queries
+- Update trigger for updated_at
+
+**ETL Scripts Created**:
+- `backend/etl/33_fetch_pdufa.py` - PDUFA date tracker with multiple sources
+  - `--seed` mode: Load from curated CSV
+  - `--check-fda` mode: Monitor FDA RSS feeds for approvals
+  - `--update-status` mode: Flag overdue PDUFA dates for review
+  - `--link-drugs` mode: Link PDUFA records to epi_drugs
+  - `--calendar` mode: Print upcoming PDUFA dates
+  - Keyword matching for epigenetic drugs in FDA RSS
+  - 7-day buffer for FDA news propagation
+
+**Seed Data** (`backend/etl/seed_pdufa_dates.csv`):
+| Drug | Company | PDUFA Date | Status | Notes |
+|------|---------|------------|--------|-------|
+| Vorasidenib | Servier/Agios | 2024-08-06 | Approved | IDH1/2 glioma |
+| Revumenib | Syndax | 2024-11-15 | Approved | First menin inhibitor |
+| Ziftomenib | Kura Oncology | 2025-11-30 | Approved | Second menin inhibitor |
+| Pelabresib | MorphoSys | 2025-09-01 | Pending | BET inhibitor for MF |
+| Bomedemstat | Imago/Merck | 2026-06-01 | Pending | LSD1 inhibitor |
+| Tazemetostat | Ipsen | 2025-06-01 | Pending | Label expansion |
+| Iadademstat | Oryzon | 2026-12-01 | Pending | SCLC Phase 3 |
+| CPI-0209 | Constellation | 2027-06-01 | Pending | EZH2 prostate |
+
+**Change Detection Integration**:
+- Added `detect_pdufa_changes()` to `34_detect_changes.py`
+- PDUFA significance rules:
+  - PDUFA → Approved: **Critical**
+  - PDUFA → CRL (rejection): **Critical**
+  - PDUFA → Extended: **High**
+  - New PDUFA tracked: **High**
+  - PDUFA date changed: **High**
+- Sample PDUFA data added to email preview
+
+**Files Created**:
+- `core/migration_ci_pdufa.sql`
+- `backend/etl/33_fetch_pdufa.py`
+- `backend/etl/seed_pdufa_dates.csv`
+
+**To Activate**:
+1. Run migration in Supabase: `cat core/migration_ci_pdufa.sql | pbcopy`
+2. Seed data: `python -m backend.etl.33_fetch_pdufa --seed`
+3. Link to drugs: `python -m backend.etl.33_fetch_pdufa --link-drugs`
+4. Check FDA RSS: `python -m backend.etl.33_fetch_pdufa --check-fda`
+5. View calendar: `python -m backend.etl.33_fetch_pdufa --calendar`
 
 ---
 

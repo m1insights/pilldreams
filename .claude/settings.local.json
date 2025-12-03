@@ -41,7 +41,9 @@
       "Bash(find:*)",
       "WebSearch",
       "Bash(pbcopy)",
-      "WebFetch(domain:search.patentsview.org)"
+      "WebFetch(domain:search.patentsview.org)",
+      "Bash(open:*)",
+      "Bash(pkill:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

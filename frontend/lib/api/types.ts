@@ -436,13 +436,13 @@ export interface ComboLabelsResponse {
 export interface TargetActivity {
   target_chembl_id: string
   target_name: string
-  target_type: string | null
+  target_type?: string           // Optional target type
   best_pact: number | null       // Best pXC50 (higher = more potent)
-  median_pact: number | null     // Median pXC50
+  median_pact?: number | null    // Median pXC50 (optional)
   best_value_nm: number | null   // Best IC50/Ki in nanomolar
   n_activities: number           // Number of measurements
-  activity_types: string[] | null // e.g., ["IC50", "Ki"]
-  is_primary_target: boolean
+  activity_types?: string[]      // e.g., ["IC50", "Ki"] (optional)
+  is_primary_target?: boolean    // Whether this is the primary therapeutic target
 }
 
 // ============ Patent Types ============
@@ -543,4 +543,112 @@ export interface ConferenceSummary {
   location: string | null
   oncology_focus: boolean
   epigenetics_track: boolean
+}
+
+// ============ Auth & Subscription Types ============
+
+export interface UserProfile {
+  id: string
+  email: string
+  name: string | null
+  tier_id: string
+  tier_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UsageStats {
+  api_calls_used: number
+  api_calls_limit: number
+  api_calls_percent: number
+  exports_used: number
+  exports_limit: number
+  exports_percent: number
+  can_export: boolean
+  can_api: boolean
+}
+
+export interface SubscriptionTier {
+  id: string
+  name: string
+  description: string
+  price_monthly: number
+  price_yearly: number
+  api_calls_limit: number
+  exports_limit: number
+  watchlist_limit: number
+  alerts_limit: number
+  feature_exports: boolean
+  feature_api_access: boolean
+  feature_slack_alerts: boolean
+  is_popular: boolean
+}
+
+export interface FeatureAccess {
+  allowed: boolean
+  reason: string | null
+  upgrade_tier: string | null
+}
+
+export interface CheckoutSession {
+  checkout_url: string
+  session_id: string
+}
+
+export interface PortalSession {
+  portal_url: string
+}
+
+export interface Subscription {
+  id: string
+  tier_id: string
+  tier_name: string
+  status: string
+  current_period_start: string
+  current_period_end: string
+  cancel_at_period_end: boolean
+}
+
+export interface PaymentHistory {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  created_at: string
+  description: string
+}
+
+// ============ Watchlist & Alerts Types ============
+
+export interface WatchlistItem {
+  id: string
+  entity_type: "drug" | "target" | "company"
+  entity_id: string
+  entity_name: string
+  user_id: string
+  created_at: string
+  notes: string | null
+  alert_on_phase_change: boolean
+  alert_on_news: boolean
+}
+
+export interface WatchlistAlert {
+  id: string
+  alert_type: string
+  alert_title: string
+  alert_body: string | null
+  alert_url: string | null
+  significance: "critical" | "high" | "medium" | "low"
+  status: "pending" | "sent" | "read" | "dismissed"
+  created_at: string
+  entity_type: string | null
+  entity_id: string | null
+}
+
+export interface NotificationPreferences {
+  email_enabled: boolean
+  email_frequency: "instant" | "daily" | "weekly"
+  slack_enabled: boolean
+  slack_webhook_url: string | null
+  alert_types: string[]
 }

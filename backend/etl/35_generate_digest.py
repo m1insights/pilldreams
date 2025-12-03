@@ -45,13 +45,20 @@ def generate_email_html(
     period_start: date,
     period_end: date
 ) -> str:
-    """Generate HTML email content for the digest."""
+    """Generate HTML email content for the digest with Phase4 dark theme branding."""
 
     # Group changes by significance
     critical = [c for c in changes if c["significance"] == "critical"]
     high = [c for c in changes if c["significance"] == "high"]
     medium = [c for c in changes if c["significance"] == "medium"]
     low = [c for c in changes if c["significance"] == "low"]
+
+    # Group changes by type for news/patents/pdufa sections
+    news_changes = [c for c in changes if c["entity_type"] == "news"]
+    patent_changes = [c for c in changes if c["entity_type"] == "patent"]
+    drug_changes = [c for c in changes if c["entity_type"] == "drug"]
+    trial_changes = [c for c in changes if c["entity_type"] == "trial"]
+    pdufa_changes = [c for c in changes if c["entity_type"] == "pdufa"]
 
     # Format date range
     date_range = f"{period_start.strftime('%b %d')} - {period_end.strftime('%b %d, %Y')}"
@@ -62,185 +69,242 @@ def generate_email_html(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pilldreams Weekly Digest</title>
+    <title>Phase4 Weekly Intelligence Digest</title>
     <style>
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
-            color: #1a1a2e;
-            max-width: 600px;
+            color: #ffffff;
+            max-width: 640px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f8f9fa;
+            background-color: #000000;
         }}
         .container {{
-            background: #ffffff;
-            border-radius: 12px;
+            background: #000000;
             padding: 32px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }}
         .header {{
             text-align: center;
-            margin-bottom: 32px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 40px;
         }}
         .logo {{
-            font-size: 28px;
-            font-weight: 700;
-            color: #0a0a0a;
-            margin-bottom: 8px;
-        }}
-        .logo span {{
-            color: #3b82f6;
+            font-size: 42px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            /* Metallic gradient matching hero */
+            background: radial-gradient(61.17% 178.53% at 38.83% -13.54%, #3B3B3B 0%, #888787 12.61%, #FFFFFF 50%, #888787 80%, #3B3B3B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }}
         .subtitle {{
-            color: #6c757d;
-            font-size: 14px;
+            color: #6b7280;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }}
+        .greeting {{
+            color: #d4d4d8;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }}
+        .intro {{
+            color: #a1a1aa;
+            margin-bottom: 32px;
+            font-size: 15px;
+        }}
+        .intro strong {{
+            color: #ffffff;
         }}
         .stats {{
             display: flex;
             justify-content: center;
-            gap: 24px;
-            margin: 24px 0;
-            padding: 16px;
-            background: #f8f9fa;
-            border-radius: 8px;
+            gap: 40px;
+            margin: 32px 0;
+            padding: 24px;
+            background: #0a0a0a;
+            border-radius: 16px;
+            border: 1px solid #1a1a1a;
         }}
         .stat {{
             text-align: center;
         }}
         .stat-number {{
-            font-size: 24px;
+            font-size: 32px;
             font-weight: 700;
-            color: #0a0a0a;
+            color: #e4e4e7;
+            letter-spacing: -0.02em;
+        }}
+        .stat-number.critical {{
+            color: #fca5a5;
+        }}
+        .stat-number.high {{
+            color: #4ade80;
         }}
         .stat-label {{
-            font-size: 12px;
-            color: #6c757d;
+            font-size: 11px;
+            color: #71717a;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 6px;
         }}
         .section {{
-            margin: 24px 0;
+            margin: 32px 0;
         }}
-        .section-title {{
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 12px;
+        .section-header {{
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            margin-bottom: 16px;
+        }}
+        .section-icon {{
+            font-size: 18px;
+        }}
+        .section-title {{
+            font-size: 14px;
+            font-weight: 600;
+            color: #d4d4d8;
+            flex-grow: 1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }}
         .badge {{
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 4px 12px;
+            border-radius: 20px;
             font-size: 11px;
             font-weight: 600;
-            text-transform: uppercase;
         }}
         .badge-critical {{
-            background: #fee2e2;
-            color: #dc2626;
+            background: rgba(252, 165, 165, 0.1);
+            color: #fca5a5;
+            border: 1px solid rgba(252, 165, 165, 0.2);
         }}
         .badge-high {{
-            background: #fef3c7;
-            color: #d97706;
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.2);
         }}
         .badge-medium {{
-            background: #dbeafe;
-            color: #2563eb;
+            background: rgba(96, 165, 250, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(96, 165, 250, 0.2);
         }}
         .badge-low {{
-            background: #f3f4f6;
-            color: #6b7280;
+            background: rgba(113, 113, 122, 0.1);
+            color: #a1a1aa;
+            border: 1px solid rgba(113, 113, 122, 0.2);
         }}
         .change-item {{
-            padding: 12px 16px;
-            border-left: 3px solid #e9ecef;
-            margin: 8px 0;
-            background: #fafafa;
-            border-radius: 0 8px 8px 0;
+            padding: 16px 18px;
+            margin: 12px 0;
+            background: #0a0a0a;
+            border-radius: 12px;
+            border: 1px solid #1a1a1a;
+            border-left: 3px solid #333333;
         }}
         .change-item.critical {{
-            border-left-color: #dc2626;
-            background: #fef2f2;
+            border-left-color: #fca5a5;
         }}
         .change-item.high {{
-            border-left-color: #d97706;
-            background: #fffbeb;
+            border-left-color: #4ade80;
         }}
         .change-item.medium {{
-            border-left-color: #2563eb;
-            background: #eff6ff;
+            border-left-color: #60a5fa;
         }}
         .change-title {{
             font-weight: 600;
-            color: #0a0a0a;
-            margin-bottom: 4px;
+            color: #e4e4e7;
+            margin-bottom: 6px;
+            font-size: 14px;
         }}
         .change-detail {{
-            font-size: 14px;
-            color: #4b5563;
+            font-size: 13px;
+            color: #a1a1aa;
         }}
         .change-meta {{
             font-size: 12px;
-            color: #9ca3af;
-            margin-top: 4px;
+            color: #52525b;
+            margin-top: 10px;
         }}
         .change-link {{
-            color: #3b82f6;
+            color: #60a5fa;
             text-decoration: none;
         }}
         .change-link:hover {{
             text-decoration: underline;
         }}
         .footer {{
-            margin-top: 32px;
+            margin-top: 40px;
             padding-top: 24px;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid #1a1a1a;
             text-align: center;
+        }}
+        .footer p {{
             font-size: 12px;
-            color: #9ca3af;
+            color: #52525b;
+            margin: 8px 0;
+        }}
+        .footer a {{
+            color: #60a5fa;
+            text-decoration: none;
         }}
         .cta-button {{
             display: inline-block;
-            padding: 12px 24px;
-            background: #0a0a0a;
-            color: #ffffff !important;
+            padding: 14px 32px;
+            background: #ffffff;
+            color: #000000 !important;
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 9999px;
             font-weight: 600;
-            margin: 16px 0;
+            margin: 24px 0;
+            font-size: 14px;
         }}
         .empty-state {{
             text-align: center;
-            padding: 32px;
-            color: #6c757d;
+            padding: 48px 20px;
+            color: #71717a;
+        }}
+        .divider {{
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #333333, transparent);
+            margin: 28px 0;
+        }}
+        .entity-tag {{
+            display: inline-block;
+            padding: 2px 8px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #71717a;
+            text-transform: uppercase;
+            margin-right: 8px;
+            letter-spacing: 0.3px;
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">pill<span>dreams</span></div>
+            <div class="logo">Phase4</div>
             <div class="subtitle">Epigenetic Oncology Intelligence</div>
         </div>
 
-        <p>Hi {user_name or 'there'},</p>
-        <p>Here's your weekly digest of changes in the epigenetic oncology landscape for <strong>{date_range}</strong>.</p>
+        <p class="greeting">Hi {user_name or 'there'},</p>
+        <p class="intro">Here's your weekly intelligence digest for <strong>{date_range}</strong>.</p>
 
         <div class="stats">
             <div class="stat">
                 <div class="stat-number">{len(changes)}</div>
-                <div class="stat-label">Total Changes</div>
+                <div class="stat-label">Total Updates</div>
             </div>
             <div class="stat">
-                <div class="stat-number">{len(critical)}</div>
+                <div class="stat-number critical">{len(critical)}</div>
                 <div class="stat-label">Critical</div>
             </div>
             <div class="stat">
-                <div class="stat-number">{len(high)}</div>
+                <div class="stat-number high">{len(high)}</div>
                 <div class="stat-label">High Priority</div>
             </div>
         </div>
@@ -250,9 +314,9 @@ def generate_email_html(
     if critical:
         html += """
         <div class="section">
-            <div class="section-title">
-                <span>🚨</span>
-                <span>Critical Updates</span>
+            <div class="section-header">
+                <span class="section-icon">🚨</span>
+                <span class="section-title">Critical Updates</span>
                 <span class="badge badge-critical">{count}</span>
             </div>
 """.format(count=len(critical))
@@ -264,9 +328,9 @@ def generate_email_html(
     if high:
         html += """
         <div class="section">
-            <div class="section-title">
-                <span>⚠️</span>
-                <span>High Priority</span>
+            <div class="section-header">
+                <span class="section-icon">⚠️</span>
+                <span class="section-title">High Priority</span>
                 <span class="badge badge-high">{count}</span>
             </div>
 """.format(count=len(high))
@@ -280,9 +344,9 @@ def generate_email_html(
     if medium:
         html += """
         <div class="section">
-            <div class="section-title">
-                <span>📢</span>
-                <span>Notable Updates</span>
+            <div class="section-header">
+                <span class="section-icon">📢</span>
+                <span class="section-title">Notable Updates</span>
                 <span class="badge badge-medium">{count}</span>
             </div>
 """.format(count=len(medium))
@@ -296,9 +360,9 @@ def generate_email_html(
     if low:
         html += f"""
         <div class="section">
-            <div class="section-title">
-                <span>📝</span>
-                <span>Other Updates</span>
+            <div class="section-header">
+                <span class="section-icon">📝</span>
+                <span class="section-title">Other Updates</span>
                 <span class="badge badge-low">{len(low)}</span>
             </div>
             <p class="change-meta">{len(low)} minor changes (score adjustments, metadata updates)</p>
@@ -316,17 +380,19 @@ def generate_email_html(
 
     # CTA and footer
     html += """
+        <div class="divider"></div>
+
         <div style="text-align: center;">
-            <a href="https://pilldreams.io/calendar" class="cta-button">View Full Calendar →</a>
+            <a href="https://phase4.io/calendar" class="cta-button">View Full Calendar →</a>
         </div>
 
         <div class="footer">
-            <p>You're receiving this because you subscribed to Pilldreams digests.</p>
+            <p>You're receiving this because you subscribed to Phase4 intelligence digests.</p>
             <p>
-                <a href="https://pilldreams.io/settings/notifications" class="change-link">Manage preferences</a> ·
-                <a href="https://pilldreams.io/unsubscribe" class="change-link">Unsubscribe</a>
+                <a href="https://phase4.io/settings/notifications" class="change-link">Manage preferences</a> ·
+                <a href="https://phase4.io/unsubscribe" class="change-link">Unsubscribe</a>
             </p>
-            <p style="margin-top: 16px;">© 2024 Pilldreams · Epigenetic Oncology Intelligence</p>
+            <p style="margin-top: 16px;">© 2025 Phase4 · Epigenetic Oncology Intelligence</p>
         </div>
     </div>
 </body>
@@ -344,7 +410,7 @@ def _render_change_item(change: Dict, significance: str) -> str:
     if change.get("old_value") and change.get("new_value"):
         detail = f"{change.get('field_changed', 'Value')}: {change['old_value']} → {change['new_value']}"
     elif change.get("change_type") == "new_entity":
-        detail = f"New {change['entity_type']} added to the database"
+        detail = f"New {change['entity_type']} added to database"
 
     source_url = change.get("source_url", "")
     source_link = f'<a href="{source_url}" class="change-link">View source →</a>' if source_url else ""
@@ -357,9 +423,13 @@ def _render_change_item(change: Dict, significance: str) -> str:
         except:
             pass
 
+    # Entity type tag
+    entity_type = change.get("entity_type", "").upper()
+    entity_tag = f'<span class="entity-tag">{entity_type}</span>' if entity_type else ""
+
     return f"""
             <div class="change-item {significance}">
-                <div class="change-title">{title}</div>
+                <div class="change-title">{entity_tag}{title}</div>
                 <div class="change-detail">{detail}</div>
                 <div class="change-meta">{detected} · {change.get('source', 'etl')} {source_link}</div>
             </div>
@@ -371,20 +441,20 @@ def generate_plain_text(changes: List[Dict], user_name: str, period_start: date,
     date_range = f"{period_start.strftime('%b %d')} - {period_end.strftime('%b %d, %Y')}"
 
     text = f"""
-PILLDREAMS WEEKLY DIGEST
+PHASE4 WEEKLY INTELLIGENCE DIGEST
 Epigenetic Oncology Intelligence
 {date_range}
 
 Hi {user_name or 'there'},
 
-Here's your weekly summary of changes:
+Here's your weekly intelligence digest:
 
 SUMMARY
-- Total Changes: {len(changes)}
+- Total Updates: {len(changes)}
 - Critical: {len([c for c in changes if c['significance'] == 'critical'])}
 - High Priority: {len([c for c in changes if c['significance'] == 'high'])}
-- Medium: {len([c for c in changes if c['significance'] == 'medium'])}
-- Low: {len([c for c in changes if c['significance'] == 'low'])}
+- Notable: {len([c for c in changes if c['significance'] == 'medium'])}
+- Other: {len([c for c in changes if c['significance'] == 'low'])}
 
 """
 
@@ -403,13 +473,13 @@ SUMMARY
 
     text += f"""
 
-View the full calendar: https://pilldreams.io/calendar
+View the full calendar: https://phase4.io/calendar
 
 ---
-Manage preferences: https://pilldreams.io/settings/notifications
-Unsubscribe: https://pilldreams.io/unsubscribe
+Manage preferences: https://phase4.io/settings/notifications
+Unsubscribe: https://phase4.io/unsubscribe
 
-© 2024 Pilldreams · Epigenetic Oncology Intelligence
+© 2025 Phase4 · Epigenetic Oncology Intelligence
 """
 
     return text
@@ -447,7 +517,7 @@ def send_email_via_resend(
                 "Content-Type": "application/json"
             },
             json={
-                "from": "Pilldreams <digest@pilldreams.io>",
+                "from": "Phase4 Intelligence <digest@phase4.io>",
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
@@ -593,18 +663,34 @@ def generate_sample_changes() -> List[Dict]:
          "field_changed": "max_phase", "old_value": "2", "new_value": "3",
          "change_summary": "GSK126: Phase 2 → Phase 3", "significance": "critical",
          "source": "ctgov", "source_url": "https://clinicaltrials.gov/study/NCT00000001", "detected_at": datetime.now().isoformat()},
-        {"id": "3", "entity_type": "trial", "entity_name": "NCT05432101", "change_type": "status_change",
+        {"id": "3", "entity_type": "news", "entity_name": "EZH2 inhibitor shows synergy with anti-PD1", "change_type": "new_entity",
+         "field_changed": None, "old_value": None, "new_value": "epi_io",
+         "change_summary": "📰 EZH2 inhibitor shows synergy with anti-PD1 in melanoma model", "significance": "high",
+         "source": "nature_cancer", "source_url": "https://nature.com/articles/example", "detected_at": datetime.now().isoformat()},
+        {"id": "4", "entity_type": "patent", "entity_name": "US12345678", "change_type": "new_entity",
+         "field_changed": "category", "old_value": None, "new_value": "epi_editor",
+         "change_summary": "📜 CRISPR-based epigenetic silencing of oncogenes [BRD4, MYC]", "significance": "high",
+         "source": "uspto", "source_url": "https://patents.google.com/patent/US12345678", "detected_at": datetime.now().isoformat()},
+        {"id": "5", "entity_type": "trial", "entity_name": "NCT05432101", "change_type": "status_change",
          "field_changed": "status", "old_value": "RECRUITING", "new_value": "COMPLETED",
-         "change_summary": "NCT05432101: Trial completed", "significance": "high",
+         "change_summary": "NCT05432101: Trial completed", "significance": "medium",
          "source": "ctgov", "source_url": "https://clinicaltrials.gov/study/NCT05432101", "detected_at": datetime.now().isoformat()},
-        {"id": "4", "entity_type": "trial", "entity_name": "NCT06123456", "change_type": "date_change",
+        {"id": "6", "entity_type": "trial", "entity_name": "NCT06123456", "change_type": "date_change",
          "field_changed": "primary_completion_date", "old_value": "2025-03-01", "new_value": "2025-06-01",
          "change_summary": "NCT06123456: Primary completion delayed to June 2025", "significance": "medium",
          "source": "ctgov", "source_url": "https://clinicaltrials.gov/study/NCT06123456", "detected_at": datetime.now().isoformat()},
-        {"id": "5", "entity_type": "drug", "entity_name": "VORINOSTAT", "change_type": "score_change",
+        {"id": "7", "entity_type": "drug", "entity_name": "VORINOSTAT", "change_type": "score_change",
          "field_changed": "total_score", "old_value": "62", "new_value": "68",
          "change_summary": "VORINOSTAT: Total score increased by 6 points", "significance": "low",
          "source": "etl", "source_url": None, "detected_at": datetime.now().isoformat()},
+        {"id": "8", "entity_type": "pdufa", "entity_name": "Pelabresib (MOR)", "change_type": "new_entity",
+         "field_changed": None, "old_value": None, "new_value": "2025-09-01",
+         "change_summary": "📅 PDUFA Alert: Pelabresib (MOR) - Sept 1, 2025", "significance": "high",
+         "source": "pdufa_tracker", "source_url": "https://morphosys.com/pipeline/pelabresib", "detected_at": datetime.now().isoformat()},
+        {"id": "9", "entity_type": "pdufa", "entity_name": "Ziftomenib (KURA)", "change_type": "status_change",
+         "field_changed": "status", "old_value": "pending", "new_value": "approved",
+         "change_summary": "🎉 FDA APPROVED: Ziftomenib (KURA)", "significance": "critical",
+         "source": "fda_rss", "source_url": "https://fda.gov/drugs/approvals", "detected_at": datetime.now().isoformat()},
     ]
 
 
@@ -645,8 +731,8 @@ def generate_digest(
 
     print(f"\n👥 Found {len(subscribers)} active subscribers")
 
-    # Use sample data in preview mode if tables don't exist
-    use_sample_data = preview and not tables_exist
+    # In preview mode, always use sample data for demonstration
+    use_sample_data = preview
 
     results = {
         "subscribers": len(subscribers),

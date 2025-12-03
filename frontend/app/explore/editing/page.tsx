@@ -60,6 +60,7 @@ function EditingScoreBreakdown({ asset }: { asset: EditingAssetSummary }) {
 }
 
 // Phase badge component
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PhaseBadge({ phase, status }: { phase: number; status: string }) {
   if (phase === 0) {
     return (

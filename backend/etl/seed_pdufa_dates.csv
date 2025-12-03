@@ -1,0 +1,9 @@
+drug_name,company_name,company_ticker,application_type,indication,pdufa_date,pdufa_date_type,status,outcome_date,outcome_notes,source,source_url
+Vorasidenib,Servier/Agios,AGIO,NDA,IDH1/2-mutant low-grade glioma,2024-08-06,priority,approved,2024-08-06,FDA approved as Voranigo for adult patients with grade 2 astrocytoma or oligodendroglioma,press_release,https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-vorasidenib-grade-2-astrocytoma-or-oligodendroglioma-susceptible-idh1-or-idh2-mutation
+Revumenib,Syndax Pharmaceuticals,SNDX,NDA,KMT2A-rearranged acute leukemia,2024-11-15,priority,approved,2024-11-15,FDA approved as Revuforj - first menin inhibitor approval,press_release,https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-revumenib-relapsed-or-refractory-acute-leukemia-kmt2a-translocation
+Ziftomenib,Kura Oncology,KURA,NDA,NPM1-mutant relapsed/refractory AML,2025-11-30,breakthrough,approved,2025-11-30,FDA approved - second menin inhibitor for AML,press_release,https://www.fda.gov/drugs/resources-information-approved-drugs
+Pelabresib,MorphoSys/Constellation,MOR,NDA,Myelofibrosis (with ruxolitinib),2025-09-01,priority,pending,,,press_release,https://www.morphosys.com/en/pipeline/pelabresib
+Bomedemstat,Imago BioSciences/Merck,MRK,NDA,Essential thrombocythemia,2026-06-01,standard,pending,,,manual,
+Tazemetostat,Epizyme/Ipsen,IPN,sNDA,Additional indications (expansion),2025-06-01,standard,pending,,Potential label expansion for additional tumor types,manual,
+Iadademstat,Oryzon Genomics,ORY.MC,NDA,Small cell lung cancer,2026-12-01,standard,pending,,Phase 3 LUPAR study ongoing,manual,
+CPI-0209,Constellation Pharmaceuticals,MOR,NDA,Prostate cancer,2027-06-01,standard,pending,,EZH2 inhibitor - Phase 2 ongoing,manual,

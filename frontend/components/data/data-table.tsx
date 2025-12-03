@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -25,6 +26,7 @@ interface DataTableProps<T> {
   onExport?: (format: "csv" | "xlsx") => void
   emptyMessage?: string
   className?: string
+  defaultSort?: { key: string; direction: SortDirection }
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -37,9 +39,10 @@ export function DataTable<T extends Record<string, any>>({
   onExport,
   emptyMessage = "No data available",
   className,
+  defaultSort,
 }: DataTableProps<T>) {
-  const [sortColumn, setSortColumn] = React.useState<string | null>(null)
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>(null)
+  const [sortColumn, setSortColumn] = React.useState<string | null>(defaultSort?.key ?? null)
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>(defaultSort?.direction ?? null)
   const [selectedRows, setSelectedRows] = React.useState<Set<number>>(new Set())
 
   const handleSort = (columnKey: string) => {

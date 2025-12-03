@@ -13,10 +13,6 @@ import {
   IconPill,
   IconTestPipe,
   IconAtom,
-  IconVirus,
-  IconHeartbeat,
-  IconStethoscope,
-  IconActivity,
 } from "@tabler/icons-react";
 import { GlowingEffect } from "./ui/glowing-effect";
 

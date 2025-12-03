@@ -64,6 +64,23 @@ SIGNIFICANCE_RULES = {
     ("drug", "new", None, "*"): "high",
     ("trial", "new", None, "*"): "medium",
     ("patent", "new", None, "*"): "medium",
+    ("news", "new", None, "*"): "medium",  # New approved news
+
+    # News impact levels
+    ("news", "impact", "*", "bullish"): "high",
+    ("news", "impact", "*", "bearish"): "high",
+
+    # Patent categories
+    ("patent", "category", "*", "epi_editor"): "high",  # New epigenetic editing patents
+    ("patent", "category", "*", "epi_therapy"): "medium",
+
+    # PDUFA dates
+    ("pdufa", "status", "pending", "approved"): "critical",  # FDA approved!
+    ("pdufa", "status", "pending", "crl"): "critical",  # Complete Response Letter (rejection)
+    ("pdufa", "status", "*", "extended"): "high",  # Review extended
+    ("pdufa", "status", "*", "delayed"): "medium",  # Sponsor requested delay
+    ("pdufa", "new", None, "*"): "high",  # New PDUFA date tracked
+    ("pdufa", "pdufa_date", "*", "*"): "high",  # PDUFA date changed
 }
 
 
@@ -312,6 +329,263 @@ def detect_trial_changes(dry_run: bool = False) -> List[Dict]:
     return changes
 
 
+def detect_news_changes(dry_run: bool = False) -> List[Dict]:
+    """Detect newly approved news in epi_news_staging table."""
+    print("\n📰 Detecting news changes...")
+
+    # Get approved news from the last 7 days
+    from datetime import timedelta
+    seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
+
+    try:
+        result = supabase.table("epi_news_staging")\
+            .select("id, title, source, source_url, ai_impact_flag, ai_category, status, pub_date, ai_extracted_entities")\
+            .eq("status", "approved")\
+            .gte("pub_date", seven_days_ago)\
+            .execute()
+    except Exception as e:
+        if "PGRST205" in str(e) or "could not find" in str(e).lower():
+            print("   ⚠️  epi_news_staging table not found - skipping news detection")
+            return []
+        raise
+
+    news_items = result.data or []
+    changes = []
+
+    for news in news_items:
+        news_id = str(news["id"])
+
+        # Check if we already have a snapshot (already processed)
+        previous = get_previous_snapshot("news", news_id)
+
+        if previous is None:
+            # New approved news article
+            impact = news.get("ai_impact_flag", "neutral")
+
+            # Determine significance based on impact
+            if impact in ("bullish", "bearish"):
+                significance = "high"
+            else:
+                significance = classify_significance("news", "new", None, "*")
+
+            # Extract linked entities from AI extraction
+            entities = news.get("ai_extracted_entities", {}) or {}
+            linked_drug_ids = entities.get("linked_drug_ids", [])
+            linked_target_ids = entities.get("linked_target_ids", [])
+
+            change = {
+                "entity_type": "news",
+                "entity_id": news_id,
+                "entity_name": news["title"][:100],
+                "change_type": "new_entity",
+                "field_changed": None,
+                "old_value": None,
+                "new_value": news.get("ai_category", "research"),
+                "change_summary": f"📰 {news['title'][:80]}{'...' if len(news['title']) > 80 else ''}",
+                "significance": significance,
+                "source": news.get("source", "rss"),
+                "source_url": news.get("source_url"),
+                "related_drug_id": linked_drug_ids[0] if linked_drug_ids else None,
+                "related_target_id": linked_target_ids[0] if linked_target_ids else None,
+            }
+            changes.append(change)
+
+            # Save snapshot
+            if not dry_run:
+                save_snapshot("news", news_id, {
+                    "title": news["title"],
+                    "status": "approved",
+                    "impact": impact,
+                    "category": news.get("ai_category"),
+                })
+
+    print(f"   Found {len(changes)} news changes")
+    return changes
+
+
+def detect_patent_changes(dry_run: bool = False) -> List[Dict]:
+    """Detect new patents in epi_patents table."""
+    print("\n📜 Detecting patent changes...")
+
+    try:
+        result = supabase.table("epi_patents")\
+            .select("id, patent_number, title, assignee, category, related_target_symbols, source_url, pub_date")\
+            .order("pub_date", desc=True)\
+            .limit(200)\
+            .execute()
+    except Exception as e:
+        if "PGRST205" in str(e) or "could not find" in str(e).lower():
+            print("   ⚠️  epi_patents table not found - skipping patent detection")
+            return []
+        raise
+
+    patents = result.data or []
+    changes = []
+
+    for patent in patents:
+        patent_id = patent.get("patent_number") or str(patent["id"])
+
+        # Check if we already have a snapshot
+        previous = get_previous_snapshot("patent", patent_id)
+
+        if previous is None:
+            # New patent
+            category = patent.get("category", "epi_tool")
+
+            # Determine significance based on category
+            if category == "epi_editor":
+                significance = "high"
+            elif category in ("epi_therapy", "epi_io"):
+                significance = "medium"
+            else:
+                significance = classify_significance("patent", "new", None, "*")
+
+            # Format target symbols
+            targets = patent.get("related_target_symbols") or []
+            target_str = ", ".join(targets[:3]) if targets else ""
+
+            change = {
+                "entity_type": "patent",
+                "entity_id": patent_id,
+                "entity_name": patent.get("patent_number", patent_id),
+                "change_type": "new_entity",
+                "field_changed": "category",
+                "old_value": None,
+                "new_value": category,
+                "change_summary": f"📜 {patent['title'][:70]}{'...' if len(patent.get('title', '')) > 70 else ''}" + (f" [{target_str}]" if target_str else ""),
+                "significance": significance,
+                "source": "uspto",
+                "source_url": patent.get("source_url"),
+            }
+            changes.append(change)
+
+            # Save snapshot
+            if not dry_run:
+                save_snapshot("patent", patent_id, {
+                    "patent_number": patent.get("patent_number"),
+                    "title": patent.get("title"),
+                    "category": category,
+                    "assignee": patent.get("assignee"),
+                })
+
+    print(f"   Found {len(changes)} patent changes")
+    return changes
+
+
+def detect_pdufa_changes(dry_run: bool = False) -> List[Dict]:
+    """Detect changes in PDUFA dates (ci_pdufa_dates table)."""
+    print("\n📅 Detecting PDUFA changes...")
+
+    try:
+        result = supabase.table("ci_pdufa_dates")\
+            .select("id, drug_name, company_name, company_ticker, application_type, indication, pdufa_date, pdufa_date_type, status, drug_id")\
+            .execute()
+    except Exception as e:
+        if "PGRST205" in str(e) or "could not find" in str(e).lower():
+            print("   ⚠️  ci_pdufa_dates table not found - skipping PDUFA detection")
+            return []
+        raise
+
+    pdufa_records = result.data or []
+    changes = []
+
+    for pdufa in pdufa_records:
+        pdufa_id = str(pdufa["id"])
+        drug_name = pdufa["drug_name"]
+        company = pdufa.get("company_ticker") or pdufa["company_name"]
+
+        current_data = {
+            "drug_name": drug_name,
+            "company_name": pdufa["company_name"],
+            "pdufa_date": pdufa["pdufa_date"],
+            "status": pdufa["status"],
+            "indication": pdufa["indication"],
+            "application_type": pdufa["application_type"],
+        }
+
+        # Get previous snapshot
+        previous = get_previous_snapshot("pdufa", pdufa_id)
+
+        if previous is None:
+            # New PDUFA date being tracked
+            change = {
+                "entity_type": "pdufa",
+                "entity_id": pdufa_id,
+                "entity_name": f"{drug_name} ({company})",
+                "change_type": "new_entity",
+                "field_changed": None,
+                "old_value": None,
+                "new_value": pdufa["pdufa_date"],
+                "change_summary": f"📅 New PDUFA: {drug_name} ({pdufa['application_type']}) - {pdufa['pdufa_date']}",
+                "significance": classify_significance("pdufa", "new", None, "*"),
+                "source": "pdufa_tracker",
+                "related_drug_id": pdufa.get("drug_id"),
+            }
+            changes.append(change)
+        else:
+            # Check for status changes
+            old_status = previous.get("status")
+            new_status = current_data["status"]
+
+            if old_status != new_status:
+                # Status changed (approval, CRL, extension, etc.)
+                significance = classify_significance("pdufa", "status", old_status, new_status)
+
+                # Generate appropriate summary
+                if new_status == "approved":
+                    summary = f"🎉 FDA APPROVED: {drug_name} ({company})"
+                elif new_status == "crl":
+                    summary = f"⚠️ CRL RECEIVED: {drug_name} ({company})"
+                elif new_status == "extended":
+                    summary = f"📅 Review Extended: {drug_name} ({company})"
+                elif new_status == "delayed":
+                    summary = f"⏳ Delayed: {drug_name} ({company})"
+                else:
+                    summary = f"Status: {drug_name} ({company}) - {old_status} → {new_status}"
+
+                change = {
+                    "entity_type": "pdufa",
+                    "entity_id": pdufa_id,
+                    "entity_name": f"{drug_name} ({company})",
+                    "change_type": "status_change",
+                    "field_changed": "status",
+                    "old_value": old_status,
+                    "new_value": new_status,
+                    "change_summary": summary,
+                    "significance": significance,
+                    "source": "pdufa_tracker",
+                    "related_drug_id": pdufa.get("drug_id"),
+                }
+                changes.append(change)
+
+            # Check for PDUFA date changes (extensions/delays)
+            old_date = previous.get("pdufa_date")
+            new_date = current_data["pdufa_date"]
+
+            if old_date and new_date and old_date != new_date:
+                change = {
+                    "entity_type": "pdufa",
+                    "entity_id": pdufa_id,
+                    "entity_name": f"{drug_name} ({company})",
+                    "change_type": "date_change",
+                    "field_changed": "pdufa_date",
+                    "old_value": old_date,
+                    "new_value": new_date,
+                    "change_summary": f"📅 PDUFA Date Changed: {drug_name} - {old_date} → {new_date}",
+                    "significance": classify_significance("pdufa", "pdufa_date", old_date, new_date),
+                    "source": "pdufa_tracker",
+                    "related_drug_id": pdufa.get("drug_id"),
+                }
+                changes.append(change)
+
+        # Save current snapshot
+        if not dry_run:
+            save_snapshot("pdufa", pdufa_id, current_data)
+
+    print(f"   Found {len(changes)} PDUFA changes")
+    return changes
+
+
 def detect_score_changes(dry_run: bool = False) -> List[Dict]:
     """Detect changes in epi_scores table."""
     print("\n📈 Detecting score changes...")
@@ -487,7 +761,7 @@ def run_change_detection(
 
     # Default to all entity types
     if entity_types is None:
-        entity_types = ["drug", "trial", "score"]
+        entity_types = ["drug", "trial", "score", "news", "patent", "pdufa"]
 
     # Detect changes for each entity type
     if "drug" in entity_types:
@@ -498,6 +772,15 @@ def run_change_detection(
 
     if "score" in entity_types:
         all_changes.extend(detect_score_changes(dry_run))
+
+    if "news" in entity_types:
+        all_changes.extend(detect_news_changes(dry_run))
+
+    if "patent" in entity_types:
+        all_changes.extend(detect_patent_changes(dry_run))
+
+    if "pdufa" in entity_types:
+        all_changes.extend(detect_pdufa_changes(dry_run))
 
     # Summary by significance
     sig_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
@@ -525,7 +808,7 @@ def run_change_detection(
 def main():
     parser = argparse.ArgumentParser(description="Detect changes across all entities")
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without saving")
-    parser.add_argument("--entity-type", type=str, help="Filter to specific entity type (drug, trial, score)")
+    parser.add_argument("--entity-type", type=str, help="Filter to specific entity type (drug, trial, score, news, patent, pdufa)")
     args = parser.parse_args()
 
     entity_types = [args.entity_type] if args.entity_type else None

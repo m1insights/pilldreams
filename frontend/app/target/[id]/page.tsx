@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { targetsApi } from "@/lib/api"
-import { ScoreBadge, DataTable, WatchButton } from "@/components/data"
+import { DataTable, WatchButton } from "@/components/data"
 import { cn } from "@/lib/utils"
 
 interface TargetData {

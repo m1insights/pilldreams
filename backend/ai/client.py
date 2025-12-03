@@ -8,6 +8,7 @@ import json
 from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
 import google.generativeai as genai
+from PIL import Image
 
 # Configure Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -40,6 +41,19 @@ class AIClient(ABC):
         max_tokens: int = 2048
     ) -> str:
         """Generate a response with conversation history."""
+        pass
+
+    @abstractmethod
+    def generate_with_image(
+        self,
+        prompt: str,
+        image: Image.Image,
+        system_prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048
+    ) -> str:
+        """Generate a response from the AI model using an image."""
         pass
 
 
@@ -151,6 +165,32 @@ class GeminiClient(AIClient):
         except Exception as e:
             return f"Error generating response: {str(e)}"
 
+    def generate_with_image(
+        self,
+        prompt: str,
+        image: Image.Image,
+        system_prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048
+    ) -> str:
+        """Generate a response from Gemini using an image."""
+        full_prompt = self._build_prompt(prompt, system_prompt, context)
+        
+        generation_config = genai.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+
+        try:
+            response = self.model.generate_content(
+                [full_prompt, image],
+                generation_config=generation_config
+            )
+            return response.text
+        except Exception as e:
+            return f"Error generating response: {str(e)}"
+
 
 class MockAIClient(AIClient):
     """Mock AI client for testing without API calls."""
@@ -185,6 +225,18 @@ class MockAIClient(AIClient):
         """Return a mock response with history context."""
         last_msg = messages[-1]["content"] if messages else "No message"
         return f"[Mock Response] Conversation with {len(messages)} messages. Last: {last_msg[:50]}..."
+
+    def generate_with_image(
+        self,
+        prompt: str,
+        image: Image.Image,
+        system_prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048
+    ) -> str:
+        """Return a mock response for image generation."""
+        return f"[Mock Response] Analyzed image with prompt: {prompt[:50]}..."
 
 
 # Singleton instance

@@ -1,16 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
-  Target,
   TargetSummary,
-  TargetDetail,
-  AssetSummary,
-  AssetDetail,
-  Company,
-  CompanyWithPipeline,
-  StockQuote,
   SearchResult,
-  WatchlistEntity,
-  DiseaseAssociation,
-  ChemistryMetrics,
   DrugSummary,
   ScoreBreakdown,
   IndicationSummary,
@@ -353,6 +344,222 @@ export const aiApi = {
   },
 }
 
+// Auth API (matches /auth/* endpoints)
+export const authApi = {
+  getProfile: async (token: string): Promise<any> => {
+    return fetchApi<any>("/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  updateProfile: async (token: string, data: { full_name?: string; company_name?: string; job_title?: string }): Promise<any> => {
+    return fetchApi<any>("/auth/me", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    })
+  },
+
+  getUsage: async (token: string): Promise<any> => {
+    return fetchApi<any>("/auth/me/usage", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  getTiers: async (): Promise<any[]> => {
+    return fetchApi<any[]>("/auth/tiers")
+  },
+
+  checkFeatureAccess: async (token: string, feature: string): Promise<any> => {
+    return fetchApi<any>(`/auth/me/can-access/${feature}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  trackLogin: async (token: string): Promise<any> => {
+    return fetchApi<any>("/auth/me/track-login", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+}
+
+// Payments API (matches /payments/* endpoints)
+export const paymentsApi = {
+  createCheckoutSession: async (token: string, tierId: string, billingPeriod: string = "monthly"): Promise<any> => {
+    return fetchApi<any>("/payments/create-checkout-session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tier_id: tierId, billing_period: billingPeriod }),
+    })
+  },
+
+  createPortalSession: async (token: string): Promise<any> => {
+    return fetchApi<any>("/payments/create-portal-session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({}),
+    })
+  },
+
+  getSubscription: async (token: string): Promise<any> => {
+    return fetchApi<any>("/payments/subscription", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  getPaymentHistory: async (token: string, limit: number = 10): Promise<any[]> => {
+    return fetchApi<any[]>(`/payments/history?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+}
+
+// Watchlist API (matches /watchlist/* endpoints)
+export const watchlistApi = {
+  getItems: async (token: string, entityType?: string): Promise<any[]> => {
+    const query = entityType ? `?entity_type=${entityType}` : ""
+    return fetchApi<any[]>(`/watchlist/${query}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  addItem: async (token: string, item: {
+    entity_type: string
+    entity_id: string
+    entity_name: string
+    alert_on_phase_change?: boolean
+    alert_on_status_change?: boolean
+    alert_on_score_change?: boolean
+    alert_on_news?: boolean
+    alert_on_pdufa?: boolean
+    notes?: string
+  }): Promise<any> => {
+    return fetchApi<any>("/watchlist/", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(item),
+    })
+  },
+
+  updateItem: async (token: string, watchlistId: string, updates: any): Promise<any> => {
+    return fetchApi<any>(`/watchlist/${watchlistId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(updates),
+    })
+  },
+
+  removeItem: async (token: string, watchlistId: string): Promise<any> => {
+    return fetchApi<any>(`/watchlist/${watchlistId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  getAlerts: async (token: string, status?: string, limit: number = 50): Promise<any[]> => {
+    const params = new URLSearchParams()
+    if (status) params.set("status", status)
+    params.set("limit", String(limit))
+    return fetchApi<any[]>(`/watchlist/alerts?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  getUnreadCount: async (token: string): Promise<{ unread_count: number }> => {
+    return fetchApi<{ unread_count: number }>("/watchlist/alerts/unread/count", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  markAlertRead: async (token: string, alertId: string): Promise<any> => {
+    return fetchApi<any>(`/watchlist/alerts/${alertId}/read`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  dismissAlert: async (token: string, alertId: string): Promise<any> => {
+    return fetchApi<any>(`/watchlist/alerts/${alertId}/dismiss`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  getNotificationPrefs: async (token: string): Promise<any> => {
+    return fetchApi<any>("/watchlist/notifications/preferences", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  },
+
+  updateNotificationPrefs: async (token: string, prefs: any): Promise<any> => {
+    return fetchApi<any>("/watchlist/notifications/preferences", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(prefs),
+    })
+  },
+}
+
+// Exports API (matches /exports/* endpoints)
+export const exportsApi = {
+  exportExcel: async (token: string, request: {
+    entity_type: string
+    entity_ids?: string[]
+    include_scores?: boolean
+    include_trials?: boolean
+    filename?: string
+  }): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/exports/excel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) throw new ApiError(response.status, "Export failed")
+    return response.blob()
+  },
+
+  exportCsv: async (token: string, request: {
+    entity_type: string
+    entity_ids?: string[]
+    include_scores?: boolean
+    filename?: string
+  }): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/exports/csv`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) throw new ApiError(response.status, "Export failed")
+    return response.blob()
+  },
+
+  exportDealMemo: async (token: string, request: {
+    drug_id: string
+    indication_id?: string
+    include_chemistry?: boolean
+    include_trials?: boolean
+    include_competitors?: boolean
+  }): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/exports/deal-memo`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
+    })
+    if (!response.ok) throw new ApiError(response.status, "Export failed")
+    return response.blob()
+  },
+}
+
 // Calendar API (matches /calendar/* endpoints)
 export const calendarApi = {
   getTrials: async (params?: {
@@ -426,6 +633,10 @@ export const api = {
   news: newsApi,
   ai: aiApi,
   calendar: calendarApi,
+  auth: authApi,
+  payments: paymentsApi,
+  watchlist: watchlistApi,
+  exports: exportsApi,
 }
 
 export { ApiError }

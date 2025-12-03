@@ -263,9 +263,10 @@ Combination categories:
 
 ## Current Data Statistics
 
-- 60 drugs (14 FDA-approved, 18 flagship clinical-stage, 28 from Open Targets)
-  - Includes PCSK9 inhibitors (being studied as epigenetic modifiers), TTR drugs, and other targets
+- 60 drugs (**22 FDA-approved**, 18 flagship clinical-stage, 20 from Open Targets) - Updated 2025-12-02
+  - Includes PCSK9 inhibitors, TTR drugs, and epigenetic modulators
   - Salt form duplicates consolidated (e.g., INCLISIRAN SODIUM kept, INCLISIRAN removed)
+  - All max_phase values verified against FDA/ClinicalTrials.gov
 - 79 epigenetic targets across 7+ protein families (20 with IO annotations)
 - 35 oncology indications
 - 148 drug-target relationships
@@ -273,7 +274,10 @@ Combination categories:
 - 73 computed scores (range: 18-70, average: 44)
 - 25 combination therapy strategies
 - 181 ChEMBL chemistry records
-- 24 companies (16 public, 8 private)
+- **27 companies** (18 public, 9 private) - Updated 2025-12-02
+  - Added: Servier, Rigel Pharmaceuticals, Acrotech Biopharma, Otsuka Pharmaceutical
+  - Status: 21 active, 4 acquired, 1 bankrupt
+- 27 drug-company relationships (with accurate ownership data)
 - 17 epigenetic editing assets
 - 10 patents
 - **991 clinical trials in trial calendar** (as of 2025-12-02)
@@ -282,6 +286,21 @@ Combination categories:
   - Phase 1: 514 trials
   - Currently Recruiting: 260
   - Completed: 543
+
+### Drug Ownership Accuracy (Verified 2025-12-02)
+Key corrections applied via `40_fix_company_drug_ownership.py`:
+- **IDH inhibitors** (ivosidenib, vorasidenib, enasidenib): Servier (owner), Agios (royalty holder)
+- **Olutasidenib**: Rigel Pharmaceuticals (licensed from Forma Aug 2022)
+- **Belinostat**: Acrotech Biopharma (acquired from Spectrum March 2019)
+
+### Drug Phase Accuracy (Verified 2025-12-02)
+Key corrections applied via `41_fix_drug_phases.py`:
+- **9 FDA-approved drugs** had NULL max_phase → corrected to 4:
+  - PCSK9: Inclisiran, Evolocumab, Alirocumab
+  - TTR: Patisiran, Inotersen, Vutrisiran, Tafamidis, Eplontersen, Acoramidis
+- **Pelabresib**: Phase 2 → Phase 3 (MANIFEST-2 completed)
+- **JQ1**: NULL → 0 (research tool, never in clinical trials)
+- Total: 22 FDA-approved drugs now showing max_phase=4
 
 ### Score Distribution
 - **High (≥60):** 17 drugs - Top: VORASIDENIB (69.5), GSK126 (68.0), ENTINOSTAT (67.4)
@@ -547,10 +566,264 @@ Audit trail of sent digests for tracking and debugging:
 
 ### CI_ENTITY_SNAPSHOTS
 Daily snapshots of entity state for change detection comparison:
-- **entity_type**: "drug", "trial", "score", "target"
+- **entity_type**: "drug", "trial", "score", "target", "pdufa", "news", "patent"
 - **entity_id**: Entity identifier (UUID or string)
 - **snapshot_data**: JSONB blob of key fields to compare
 - **snapshot_date**: Date of snapshot
 - Unique constraint: (entity_type, entity_id, snapshot_date)
 
 ETL script `34_detect_changes.py` compares today's entity state against the most recent snapshot to detect changes. New snapshots are saved after each run.
+
+### CI_PDUFA_DATES
+PDUFA (FDA action) dates for drug approvals. Critical for stock catalysts:
+- **drug_name**: Name of the drug (e.g., "Pelabresib")
+- **drug_id**: Optional foreign key to EPI_DRUGS
+- **chembl_id**: ChEMBL identifier if available
+- **company_name**: Sponsoring company (e.g., "MorphoSys")
+- **company_ticker**: Stock ticker for catalyst tracking (e.g., "MOR")
+- **application_type**: "NDA" (small molecule), "BLA" (biologic), "sNDA", "sBLA"
+- **application_number**: FDA application number (e.g., "NDA 216456")
+- **indication**: Target indication (e.g., "Myelofibrosis")
+- **indication_efo_id**: Optional EFO ID link
+- **pdufa_date**: The FDA action date
+- **pdufa_date_type**: "standard" (10mo), "priority" (6mo), "accelerated", "breakthrough"
+- **status**: "pending", "approved", "crl" (rejection), "withdrawn", "extended", "delayed"
+- **outcome_date**: Actual outcome date (if different from PDUFA)
+- **outcome_notes**: Notes about the outcome
+- **source**: "fda_rss", "press_release", "sec_filing", "ctgov", "manual"
+- **source_url**: URL to source document
+- Unique constraint: (drug_name, indication, pdufa_date)
+
+### CI_PDUFA_HISTORY
+Audit trail of PDUFA date changes (extensions, delays, outcomes):
+- **pdufa_id**: Foreign key to CI_PDUFA_DATES
+- **change_type**: "date_extended", "date_delayed", "status_updated", "info_updated"
+- **old_value**: Previous value
+- **new_value**: New value
+- **source**: Where the change was discovered
+- **source_url**: URL to announcement
+- **notes**: Additional context
+
+## User & Subscription Tables (Week 6)
+
+### CI_USER_PROFILES
+Extended user profiles linked to Supabase Auth. Each profile has:
+- **id**: UUID primary key, references auth.users(id)
+- **email**: User's email address
+- **full_name**: Display name
+- **company_name**: User's company/organization
+- **job_title**: User's role
+- **subscription_tier**: "free", "pro", or "enterprise"
+- **subscription_status**: "active", "past_due", "canceled", "trialing"
+- **stripe_customer_id**: Stripe customer identifier
+- **stripe_subscription_id**: Stripe subscription identifier
+- **stripe_price_id**: Current price plan ID
+- **trial_ends_at**: Trial expiration timestamp
+- **trial_used**: Boolean - has user used their trial
+- **api_calls_this_month**: Current month usage counter
+- **api_calls_limit**: Monthly API call limit (-1 = unlimited)
+- **exports_this_month**: Current month export counter
+- **exports_limit**: Monthly export limit (-1 = unlimited)
+- **last_login_at**: Last login timestamp
+
+Created automatically via trigger `handle_new_user()` on auth.users INSERT.
+
+### CI_SUBSCRIPTION_TIERS
+Subscription tier definitions and pricing:
+- **id**: Tier identifier ("free", "pro", "enterprise")
+- **name**: Display name
+- **description**: Marketing description
+- **price_monthly**: Monthly price in cents (4900 = $49)
+- **price_yearly**: Yearly price in cents (39900 = $399)
+- **stripe_price_id_monthly**: Stripe price ID for monthly billing
+- **stripe_price_id_yearly**: Stripe price ID for yearly billing
+- **api_calls_limit**: API calls per month (-1 = unlimited)
+- **exports_limit**: Exports per month (-1 = unlimited)
+- **watchlist_limit**: Max watchlist items
+- **alerts_limit**: Max alerts
+- **feature_exports**: Boolean - can export data
+- **feature_api_access**: Boolean - can use API
+- **feature_slack_alerts**: Boolean - can use Slack integration
+- **feature_priority_support**: Boolean - priority support access
+- **feature_custom_reports**: Boolean - custom report access
+- **is_popular**: Boolean - show "Popular" badge
+- **display_order**: Sort order for UI
+
+Default tiers:
+| Tier | Monthly | API Calls | Exports | Features |
+|------|---------|-----------|---------|----------|
+| Free | $0 | 100 | 5 | Basic access |
+| Pro | $49 | 1,000 | 50 | All features |
+| Enterprise | $199 | Unlimited | Unlimited | All + priority support |
+
+### CI_STRIPE_EVENTS
+Stripe webhook event log for debugging and audit:
+- **stripe_event_id**: Stripe event identifier
+- **event_type**: Event type (e.g., "checkout.session.completed", "invoice.paid")
+- **customer_id**: Stripe customer ID
+- **subscription_id**: Stripe subscription ID
+- **invoice_id**: Stripe invoice ID
+- **amount**: Payment amount in cents
+- **currency**: Currency code
+- **processed**: Boolean - has event been handled
+- **processed_at**: When event was processed
+- **error_message**: Error details if processing failed
+- **raw_payload**: Full event JSON
+
+### CI_PAYMENT_HISTORY
+User payment records:
+- **user_id**: Foreign key to CI_USER_PROFILES
+- **stripe_invoice_id**: Stripe invoice identifier
+- **stripe_payment_intent_id**: Stripe payment intent ID
+- **stripe_subscription_id**: Stripe subscription ID
+- **amount**: Payment amount in cents
+- **currency**: Currency code (default: "usd")
+- **status**: "succeeded", "pending", "failed", "refunded"
+- **description**: Payment description
+- **period_start**: Billing period start
+- **period_end**: Billing period end
+- **receipt_url**: Link to receipt
+- **invoice_pdf_url**: Link to PDF invoice
+
+## Watchlist & Alerts Tables (Week 4)
+
+### CI_WATCHLIST
+User watchlist for tracking entities:
+- **user_id**: Foreign key to auth.users
+- **entity_type**: "drug", "target", "company", "trial", "indication"
+- **entity_id**: UUID of the watched entity
+- **entity_name**: Denormalized name for quick display
+- **alert_on_phase_change**: Alert when clinical phase changes
+- **alert_on_status_change**: Alert when trial status changes
+- **alert_on_score_change**: Alert when TotalScore changes
+- **alert_on_news**: Alert on news mentions
+- **alert_on_patent**: Alert on new patents
+- **alert_on_pdufa**: Alert on PDUFA date changes
+- **alert_email**: Receive email alerts
+- **alert_slack**: Receive Slack alerts
+- **alert_in_app**: Show in-app notifications
+- **notes**: User notes about the entity
+
+Unique constraint: (user_id, entity_type, entity_id)
+
+### CI_ALERT_QUEUE
+Queue of pending alerts to be delivered:
+- **user_id**: Foreign key to auth.users
+- **watchlist_id**: Foreign key to CI_WATCHLIST
+- **change_log_id**: Foreign key to CI_CHANGE_LOG
+- **alert_type**: "phase_change", "status_change", "pdufa", "news", "score_change"
+- **alert_title**: Alert headline
+- **alert_body**: Alert details
+- **alert_url**: Deep link to entity
+- **significance**: "critical", "high", "medium", "low"
+- **status**: "pending", "sent", "read", "dismissed"
+- **email_sent_at**: When email was sent
+- **slack_sent_at**: When Slack message was sent
+- **read_at**: When user read the alert
+
+### CI_NOTIFICATION_PREFS
+User notification preferences:
+- **user_id**: Unique foreign key to auth.users
+- **email_enabled**: Boolean - receive email notifications
+- **email_frequency**: "realtime", "daily", "weekly"
+- **email_min_significance**: Minimum level for emails
+- **slack_enabled**: Boolean - receive Slack notifications
+- **slack_webhook_url**: Slack webhook URL
+- **slack_min_significance**: Minimum level for Slack
+- **in_app_enabled**: Boolean - show in-app notifications
+- **quiet_hours_enabled**: Boolean - mute during quiet hours
+- **quiet_hours_start**: Quiet hours start time
+- **quiet_hours_end**: Quiet hours end time
+- **timezone**: User timezone (default: "America/New_York")
+
+## Historical Timeline Tables
+
+### EPI_DRUG_PHASE_HISTORY
+Tracks when drugs changed clinical phases or received FDA approval:
+- **drug_id**: Foreign key to EPI_DRUGS
+- **drug_name**: Denormalized for query efficiency
+- **phase_from**: Previous phase (NULL if first record)
+- **phase_to**: New phase (0-4)
+- **fda_approved_from**: Previous approval status
+- **fda_approved_to**: New approval status
+- **indication_id**: Foreign key to EPI_INDICATIONS
+- **indication_name**: Denormalized indication name
+- **source**: Data source ("etl", "manual", "clinicaltrials", "fda")
+- **source_url**: Link to source
+- **notes**: Additional context
+- **change_date**: When the change occurred
+- **detected_at**: When we detected it
+
+Answers: "When did Tazemetostat enter Phase 3?"
+
+### EPI_COMPANY_ENTRY_HISTORY
+Tracks when companies entered the epigenetics space:
+- **company_id**: Foreign key to EPI_COMPANIES
+- **company_name**: Denormalized company name
+- **event_type**: Event type ("first_drug", "acquisition", "partnership", "ipo", "bankruptcy")
+- **event_description**: Detailed description
+- **drug_id**: Related drug (if applicable)
+- **drug_name**: Related drug name
+- **target_id**: Related target (if applicable)
+- **target_symbol**: Related target symbol
+- **source**: Data source
+- **source_url**: Link to source
+- **event_date**: When the event occurred
+
+Answers: "When did Lilly enter the EZH2 space?"
+
+### EPI_TARGET_ACTIVITY_HISTORY
+Tracks when targets gained or lost drugs:
+- **target_id**: Foreign key to EPI_TARGETS
+- **target_symbol**: Denormalized target symbol
+- **event_type**: Event type ("drug_added", "drug_removed", "approval", "trial_started")
+- **drug_id**: Related drug
+- **drug_name**: Related drug name
+- **phase**: Clinical phase at time of event
+- **source**: Data source
+- **event_date**: When the event occurred
+
+Answers: "When did the HDAC1 pipeline start growing?"
+
+### EPI_STATE_SNAPSHOT
+Daily snapshots of entity state for change detection:
+- **snapshot_date**: Date of snapshot
+- **entity_type**: "drug", "target", "company"
+- **entity_id**: Entity UUID
+- **state_data**: JSONB blob of entity state
+- **state_hash**: MD5 hash for quick comparison
+- Unique constraint: (snapshot_date, entity_type, entity_id)
+
+Used by ETL scripts to detect changes by comparing current state to most recent snapshot.
+
+## Row Level Security (RLS)
+
+All user-facing tables have RLS enabled:
+- **ci_watchlist**: Users can only access their own watchlist items
+- **ci_alert_queue**: Users can only access their own alerts
+- **ci_notification_prefs**: Users can only access their own preferences
+- **ci_user_profiles**: Users can only access their own profile
+- **ci_payment_history**: Users can only access their own payments
+- **ci_subscription_tiers**: Public read access (pricing is public)
+
+## Database Functions
+
+### handle_new_user()
+Trigger function that runs on auth.users INSERT:
+- Creates CI_USER_PROFILES record with email, name, 14-day trial
+- Creates CI_NOTIFICATION_PREFS record with defaults
+
+### check_feature_access(user_id, feature)
+Returns boolean indicating if user can access a feature:
+- Gets user's subscription tier
+- Checks tier's feature flags
+
+### increment_usage(user_id, counter)
+Increments usage counter if within limits:
+- Returns false if limit reached
+- Returns true and increments counter otherwise
+
+### reset_monthly_usage()
+Resets monthly counters on 1st of month:
+- Sets api_calls_this_month = 0
+- Sets exports_this_month = 0
